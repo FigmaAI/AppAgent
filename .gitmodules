@@ -1,0 +1,3 @@
+[submodule "figma-client"]
+	path = figma-client
+	url = https://github.com/FigmaAI/klever-v3.git
