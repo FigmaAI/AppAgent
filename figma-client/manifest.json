@@ -1,0 +1,14 @@
+{
+  "name": "Klever v3",
+  "id": "00000000",
+  "api": "1.0.0",
+  "main": "dist/code.js",
+  "ui": "dist/ui.html",
+  "permissions": ["teamlibrary"],
+  "editorType": ["figma"],
+  "networkAccess": {
+    "allowedDomains": ["https://figma.com"],
+    "reasoning": "To get images from server",
+    "devAllowedDomains": ["http://localhost:5000"]
+  }
+}

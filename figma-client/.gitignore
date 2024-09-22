@@ -1,0 +1,10 @@
+node_modules
+dist
+src/server/datasets
+settings.json
+yarn-error.log
+.vscode
+key.json
+__pycache__
+src/server/rico_dataset_v0.1-semantic_annotations.zip
+/.yarn
