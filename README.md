@@ -58,7 +58,7 @@ https://github.com/mnotgod96/AppAgent/assets/27103154/71603333-274c-46ed-8381-2f
 
 *(New)* An example of using the AppAgent to operate a Figma prototype.
 
-![KleverOnFlask](./assets/KleverOnServer.gif)
+<img src="./assets/KleverOnServer.gif" width="570" alt="Klever On ServerSide">
 
 
 ## 🚀 Quick Start
@@ -213,15 +213,32 @@ Choose option 3 for Figma prototype exploration, then select between the followi
 
 This mode runs the exploration directly without additional setup. It's suitable for quick tests or when you don't need real-time interaction with Figma.
 
+1. Choose this option when prompted
+1. Copy the prototype URL from Figma and paste it into the terminal
+1. Use the terminal interface to control the exploration process
+
+<div style="width: 100%; text-align: center;">
+   <img src="assets/demo_figma.png" width="570" alt="Figma demo" />
+   <i>Standalone Mode</i>
+</div>
+<br/>
+
 ##### Option 3-2: Flask Server API Mode
 
 This mode integrates AppAgent with a Figma plugin, allowing real-time interaction and visualization in your Figma environment. To use this mode:
 
-1. Install the Figma plugin from the /figma-client/ directory (see README there for instructions)
+1. Install the Figma plugin from the  `/figma-client/` directory
 1. Choose this option when prompted
 1. Use the plugin interface in Figma to control the exploration process
 
-For detailed instructions on plugin features, exploration process, and report generation, please refer to the README.md file in the `/figma-client/` folder.
+<div style="width: 100%; text-align: center;">
+   <img src="assets/KleverOnServer.gif" width="570" alt="Figma demo" />
+   <i>Flask Server API Mode</i>
+</div>
+<br/>
+
+
+> For detailed instructions on plugin features, exploration process, and report generation, please refer to [this README](./figma-client/README.md) in the `/figma-client/` folder.
 
 #### 📱 Step 4. Deployment Phase
 
