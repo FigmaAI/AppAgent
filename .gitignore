@@ -5,3 +5,4 @@
 /*.json
 scripts/__pycache__/config.cpython-39.pyc
 *.pyc
+/klever-instant-ut-mcp/node_modules
