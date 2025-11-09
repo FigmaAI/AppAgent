@@ -1,14 +1,18 @@
-MODEL: "OpenAI"  # The type of multi-modal LLM you would like to use to power the AppAgent, must be either OpenAI or Qwen
+MODEL: "api"  # Choose "api" for OpenAI-compatible APIs (OpenAI, OpenRouter, etc.) or "local" for Ollama
 
-OPENAI_API_BASE: "https://api.openai.com/v1/chat/completions"
-OPENAI_API_KEY: "sk-"  # Set the value to sk-xxx if you host the openai interface for open llm model
-OPENAI_API_MODEL: "gpt-4-vision-preview"  # The only OpenAI model by now that accepts visual input
+# API Model Configuration (OpenAI, OpenRouter, or any OpenAI-compatible API)
+API_BASE_URL: "https://api.openai.com/v1/chat/completions"
+API_KEY: "sk-"  # Your API key
+API_MODEL: "gpt-4-vision-preview"  # Model name
+
+# Local Model Configuration (Ollama)
+LOCAL_BASE_URL: "http://localhost:11434/v1/chat/completions"
+LOCAL_MODEL: "llava:latest"  # Ollama model with vision support (e.g., llava, qwen2-vl)
+
+# Common Settings
 MAX_TOKENS: 300  # The max token limit for the response completion
 TEMPERATURE: 0.0  # The temperature of the model: the lower the value, the more consistent the output of the model
-REQUEST_INTERVAL: 10  # Time in seconds between consecutive GPT-4V requests
-
-DASHSCOPE_API_KEY: "sk-"  # The dashscope API key that gives you access to Qwen-VL model
-QWEN_MODEL: "qwen-vl-max"
+REQUEST_INTERVAL: 10  # Time in seconds between consecutive requests
 
 ANDROID_SCREENSHOT_DIR: "/sdcard"  # Set the directory on your Android device to store the intermediate screenshots. Make sure the directory EXISTS on your phone!
 ANDROID_XML_DIR: "/sdcard"  # Set the directory on your Android device to store the intermediate XML files used for determining locations of UI elements on your screen. Make sure the directory EXISTS on your phone!

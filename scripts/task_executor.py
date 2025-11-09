@@ -10,7 +10,7 @@ import time
 import prompts
 from config import load_config
 from and_controller import list_all_devices, AndroidController, traverse_tree
-from model import parse_explore_rsp, parse_grid_rsp, OpenAIModel, QwenModel
+from model import parse_explore_rsp, parse_grid_rsp, OpenAIModel
 from utils import print_with_color, draw_bbox_multi, draw_grid
 
 arg_desc = "AppAgent Executor"
@@ -21,17 +21,20 @@ args = vars(parser.parse_args())
 
 configs = load_config()
 
-if configs["MODEL"] == "OpenAI":
-    mllm = OpenAIModel(base_url=configs["OPENAI_API_BASE"],
-                       api_key=configs["OPENAI_API_KEY"],
-                       model=configs["OPENAI_API_MODEL"],
+if configs["MODEL"] == "api":
+    mllm = OpenAIModel(base_url=configs["API_BASE_URL"],
+                       api_key=configs["API_KEY"],
+                       model=configs["API_MODEL"],
                        temperature=configs["TEMPERATURE"],
                        max_tokens=configs["MAX_TOKENS"])
-elif configs["MODEL"] == "Qwen":
-    mllm = QwenModel(api_key=configs["DASHSCOPE_API_KEY"],
-                     model=configs["QWEN_MODEL"])
+elif configs["MODEL"] == "local":
+    mllm = OpenAIModel(base_url=configs["LOCAL_BASE_URL"],
+                       api_key=configs.get("LOCAL_API_KEY", "ollama"),  # Ollama doesn't require API key
+                       model=configs["LOCAL_MODEL"],
+                       temperature=configs["TEMPERATURE"],
+                       max_tokens=configs["MAX_TOKENS"])
 else:
-    print_with_color(f"ERROR: Unsupported model type {configs['MODEL']}!", "red")
+    print_with_color(f"ERROR: Unsupported model type {configs['MODEL']}! Use 'api' or 'local'.", "red")
     sys.exit()
 
 app = args["app"]

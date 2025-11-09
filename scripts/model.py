@@ -4,7 +4,6 @@ from typing import List
 from http import HTTPStatus
 
 import requests
-import dashscope
 
 from utils import print_with_color, encode_image
 
@@ -68,34 +67,6 @@ class OpenAIModel(BaseModel):
         else:
             return False, response["error"]["message"]
         return True, response["choices"][0]["message"]["content"]
-
-
-class QwenModel(BaseModel):
-    def __init__(self, api_key: str, model: str):
-        super().__init__()
-        self.model = model
-        dashscope.api_key = api_key
-
-    def get_model_response(self, prompt: str, images: List[str]) -> (bool, str):
-        content = [{
-            "text": prompt
-        }]
-        for img in images:
-            img_path = f"file://{img}"
-            content.append({
-                "image": img_path
-            })
-        messages = [
-            {
-                "role": "user",
-                "content": content
-            }
-        ]
-        response = dashscope.MultiModalConversation.call(model=self.model, messages=messages)
-        if response.status_code == HTTPStatus.OK:
-            return True, response.output.choices[0].message.content[0]["text"]
-        else:
-            return False, response.message
 
 
 def parse_explore_rsp(rsp):
