@@ -24,6 +24,12 @@ WEB_HEADLESS: false  # Run browser in headless mode (no GUI)
 WEB_VIEWPORT_WIDTH: 1280  # Browser viewport width
 WEB_VIEWPORT_HEIGHT: 720  # Browser viewport height
 
+# Image Optimization (reduces token usage for vision models)
+IMAGE_MAX_WIDTH: 1280  # Maximum image width for vision model input
+IMAGE_MAX_HEIGHT: 720  # Maximum image height for vision model input
+IMAGE_QUALITY: 85  # JPEG compression quality (1-100, higher = better quality but larger size)
+OPTIMIZE_IMAGES: true  # Enable automatic image optimization to reduce token usage
+
 DOC_REFINE: false  # Set this to true will make the agent refine existing documentation based on the latest demonstration; otherwise, the agent will not regenerate a new documentation for elements with the same resource ID.
 MAX_ROUNDS: 20  # Set the round limit for the agent to complete the task
 DARK_MODE: false  # Set this to true if your app is in dark mode to enhance the element labeling

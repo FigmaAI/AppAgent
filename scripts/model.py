@@ -6,7 +6,8 @@ from http import HTTPStatus
 
 import requests
 
-from utils import print_with_color, encode_image, SystemMonitor
+from config import load_config
+from utils import print_with_color, encode_image, optimize_image, SystemMonitor
 
 
 class BaseModel:
@@ -27,6 +28,13 @@ class OpenAIModel(BaseModel):
         self.temperature = temperature
         self.max_tokens = max_tokens
 
+        # Load image optimization settings
+        configs = load_config()
+        self.optimize_images = configs.get("OPTIMIZE_IMAGES", True)
+        self.image_max_width = configs.get("IMAGE_MAX_WIDTH", 1280)
+        self.image_max_height = configs.get("IMAGE_MAX_HEIGHT", 720)
+        self.image_quality = configs.get("IMAGE_QUALITY", 85)
+
     def get_model_response(self, prompt: str, images: List[str]) -> (bool, str):
         # Start system monitoring
         monitor = SystemMonitor()
@@ -40,6 +48,10 @@ class OpenAIModel(BaseModel):
             }
         ]
         for img in images:
+            # Optimize image to reduce token usage (especially important for Ollama)
+            if self.optimize_images:
+                img = optimize_image(img, self.image_max_width, self.image_max_height, self.image_quality)
+
             base64_img = encode_image(img)
             content.append({
                 "type": "image_url",
