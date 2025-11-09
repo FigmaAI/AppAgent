@@ -3,11 +3,11 @@ MODEL: "api"  # Choose "api" for OpenAI-compatible APIs (OpenAI, OpenRouter, etc
 # API Model Configuration (OpenAI, OpenRouter, or any OpenAI-compatible API)
 API_BASE_URL: "https://api.openai.com/v1/chat/completions"
 API_KEY: "sk-"  # Your API key
-API_MODEL: "gpt-4-vision-preview"  # Model name
+API_MODEL: "gpt-4o-mini"  # Model name
 
 # Local Model Configuration (Ollama)
 LOCAL_BASE_URL: "http://localhost:11434/v1/chat/completions"
-LOCAL_MODEL: "llava:latest"  # Ollama model with vision support (e.g., llava, qwen2-vl)
+LOCAL_MODEL: "qwen3-vl:4b"  # Ollama model with vision support (e.g., llava, qwen2-vl)
 
 # Common Settings
 MAX_TOKENS: 300  # The max token limit for the response completion
