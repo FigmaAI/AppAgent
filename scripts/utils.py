@@ -113,3 +113,71 @@ def encode_image(image_path):
     """Encode image to base64 string."""
     with open(image_path, "rb") as image_file:
         return base64.b64encode(image_file.read()).decode('utf-8')
+
+
+def optimize_image(image_path, max_size=512, quality=85, output_path=None):
+    """
+    Resize image to reduce token usage for vision models.
+    Maintains aspect ratio and resizes so the longest side is max_size.
+
+    Args:
+        image_path: Path to input image
+        max_size: Maximum width or height in pixels (default: 512)
+        quality: JPEG quality 1-100 (default: 85)
+        output_path: Path to save optimized image (if None, overwrites input)
+
+    Returns:
+        Path to optimized image
+    """
+    from config import load_config
+
+    configs = load_config()
+
+    # Check if optimization is enabled
+    if not configs.get("OPTIMIZE_IMAGES", True):
+        return image_path
+
+    # Use config values if available
+    max_size = configs.get("IMAGE_MAX_WIDTH", max_size)
+    max_height = configs.get("IMAGE_MAX_HEIGHT", max_size)
+    max_size = min(max_size, max_height)  # Use the smaller value
+    quality = configs.get("IMAGE_QUALITY", quality)
+
+    # Read image
+    img = cv2.imread(image_path)
+    if img is None:
+        print_with_color(f"WARNING: Failed to read image: {image_path}", "yellow")
+        return image_path
+
+    # Get current dimensions
+    height, width = img.shape[:2]
+    original_size = os.path.getsize(image_path) / 1024  # KB
+
+    # Calculate new dimensions (maintain aspect ratio)
+    if width > max_size or height > max_size:
+        if width > height:
+            new_width = max_size
+            new_height = int(height * (max_size / width))
+        else:
+            new_height = max_size
+            new_width = int(width * (max_size / height))
+
+        # Resize image
+        img = cv2.resize(img, (new_width, new_height), interpolation=cv2.INTER_AREA)
+
+        # Save optimized image
+        if output_path is None:
+            output_path = image_path
+
+        cv2.imwrite(output_path, img, [cv2.IMWRITE_JPEG_QUALITY, quality])
+
+        new_size = os.path.getsize(output_path) / 1024  # KB
+        print_with_color(
+            f"Image optimized: {width}x{height} → {new_width}x{new_height}, "
+            f"{original_size:.1f}KB → {new_size:.1f}KB ({new_size/original_size*100:.0f}%)",
+            "cyan"
+        )
+    else:
+        print_with_color(f"Image already optimal: {width}x{height} ({original_size:.1f}KB)", "cyan")
+
+    return output_path if output_path else image_path

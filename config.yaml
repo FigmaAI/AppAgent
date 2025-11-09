@@ -7,10 +7,12 @@ API_MODEL: "gpt-4o-mini"  # Model name
 
 # Local Model Configuration (Ollama)
 LOCAL_BASE_URL: "http://localhost:11434/v1/chat/completions"
-LOCAL_MODEL: "qwen3-vl:4b"  # Ollama model with vision support (e.g., llava, qwen2-vl)
+LOCAL_MODEL: "qwen3-vl:4b"  # Ollama model with vision support (optimized for 16GB RAM)
+# Model specs: 4.4B params, 262K context length
+# Note: This model uses thinking mode - needs 4096+ tokens for complete responses
 
 # Common Settings
-MAX_TOKENS: 300  # The max token limit for the response completion
+MAX_TOKENS: 4096  # Increased for qwen3-vl:4b thinking mode (model needs space for internal reasoning + final answer)
 TEMPERATURE: 0.0  # The temperature of the model: the lower the value, the more consistent the output of the model
 REQUEST_INTERVAL: 10  # Time in seconds between consecutive requests
 
@@ -25,8 +27,8 @@ WEB_VIEWPORT_WIDTH: 1280  # Browser viewport width
 WEB_VIEWPORT_HEIGHT: 720  # Browser viewport height
 
 # Image Optimization (reduces token usage for vision models)
-IMAGE_MAX_WIDTH: 1280  # Maximum image width for vision model input
-IMAGE_MAX_HEIGHT: 720  # Maximum image height for vision model input
+IMAGE_MAX_WIDTH: 512  # Maximum image width for vision model input (reduced for 4b model stability)
+IMAGE_MAX_HEIGHT: 512  # Maximum image height for vision model input (reduced for 4b model stability)
 IMAGE_QUALITY: 85  # JPEG compression quality (1-100, higher = better quality but larger size)
 OPTIMIZE_IMAGES: true  # Enable automatic image optimization to reduce token usage
 

@@ -1,5 +1,6 @@
 import os
 import time
+import shutil
 from typing import List, Tuple
 from playwright.sync_api import sync_playwright, Page, Browser
 import cv2
@@ -10,6 +11,29 @@ from utils import print_with_color
 
 
 configs = load_config()
+
+
+def normalize_url(url: str) -> str:
+    """
+    Normalize URL by adding protocol if missing.
+
+    Args:
+        url: URL string (e.g., "google.com" or "https://google.com")
+
+    Returns:
+        Normalized URL with protocol (e.g., "https://google.com")
+    """
+    if not url:
+        return url
+
+    # Remove whitespace
+    url = url.strip()
+
+    # Add protocol if missing
+    if not url.startswith(('http://', 'https://', 'file://')):
+        url = f'https://{url}'
+
+    return url
 
 
 class WebElement:
@@ -186,11 +210,13 @@ class WebController:
 
         # Navigate to initial URL if provided
         if url:
+            url = normalize_url(url)
             self.page.goto(url, wait_until="networkidle")
             print_with_color(f"Navigated to: {url}", "yellow")
 
     def navigate(self, url: str):
         """Navigate to URL"""
+        url = normalize_url(url)
         self.page.goto(url, wait_until="networkidle")
         time.sleep(1)  # Extra wait for dynamic content
         return self.page.url
@@ -339,6 +365,91 @@ class WebController:
     def get_page_title(self) -> str:
         """Get current page title"""
         return self.page.title()
+
+    def get_screenshot_with_bbox(self, screenshot_before, save_path, tl, br):
+        """
+        Copy screenshot and draw bounding box on it
+
+        Args:
+            screenshot_before: Path to original screenshot
+            save_path: Path to save screenshot with bbox
+            tl: Top-left corner (x, y)
+            br: Bottom-right corner (x, y)
+
+        Returns:
+            Path to saved screenshot
+        """
+        # Copy the screenshot_before image
+        shutil.copy(screenshot_before, save_path)
+
+        # Load the copied image
+        img = cv2.imread(save_path)
+
+        # Draw the bounding box on the image
+        cv2.rectangle(img, (int(tl[0]), int(tl[1])), (int(br[0]), int(br[1])), (0, 255, 0), 2)
+
+        # Save the image with the bounding box
+        cv2.imwrite(save_path, img)
+
+        return save_path
+
+    def draw_circle(self, x, y, img_path, r=10, thickness=2):
+        """
+        Draw a circle on an image at specified coordinates
+
+        Args:
+            x: X coordinate
+            y: Y coordinate
+            img_path: Path to image file
+            r: Circle radius (default: 10)
+            thickness: Line thickness (default: 2)
+        """
+        img = cv2.imread(img_path)
+        cv2.circle(img, (int(x), int(y)), r, (0, 0, 255), thickness)
+        cv2.imwrite(img_path, img)
+
+    def draw_arrow(self, x, y, direction, dist, image_path, arrow_color=(0, 255, 0), thickness=2):
+        """
+        Draw an arrow on an image to indicate swipe direction
+
+        Args:
+            x: Starting X coordinate
+            y: Starting Y coordinate
+            direction: Arrow direction ("up", "down", "left", "right")
+            dist: Distance ("short", "medium", "long")
+            image_path: Path to image file
+            arrow_color: RGB color tuple (default: green)
+            thickness: Line thickness (default: 2)
+        """
+        img = cv2.imread(image_path)
+
+        # Calculate the arrow length based on the screen width and dist
+        screen_width = img.shape[1]
+        unit_dist = int(screen_width / 10)
+        if dist == "long":
+            arrow_length = 3 * unit_dist
+        elif dist == "medium":
+            arrow_length = 2 * unit_dist
+        else:
+            arrow_length = unit_dist
+
+        # Define the arrow directions
+        if direction == "up":
+            end_point = (x, y - arrow_length)
+        elif direction == "down":
+            end_point = (x, y + arrow_length)
+        elif direction == "left":
+            end_point = (x - arrow_length, y)
+        elif direction == "right":
+            end_point = (x + arrow_length, y)
+        else:
+            raise ValueError(f"Invalid direction: {direction}")
+
+        # Draw the arrow
+        cv2.arrowedLine(img, (x, y), end_point, arrow_color, thickness)
+
+        # Save the modified image
+        cv2.imwrite(image_path, img)
 
     def close(self):
         """Close browser and cleanup"""

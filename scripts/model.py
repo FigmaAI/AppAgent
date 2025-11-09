@@ -8,7 +8,7 @@ import requests
 import ollama
 
 from config import load_config
-from utils import print_with_color, encode_image, SystemMonitor
+from utils import print_with_color, encode_image, optimize_image
 
 
 class BaseModel:
@@ -44,10 +44,13 @@ class OpenAIModel(BaseModel):
         Returns:
             (success, response_text)
         """
-        # Start system monitoring
-        monitor = SystemMonitor()
-        monitor.start()
         start_time = time.time()
+
+        # Optimize images before encoding
+        optimized_images = []
+        for img_path in images:
+            optimized_path = optimize_image(img_path)
+            optimized_images.append(optimized_path)
 
         content = [
             {
@@ -57,7 +60,7 @@ class OpenAIModel(BaseModel):
         ]
 
         # Encode images to base64
-        for img in images:
+        for img in optimized_images:
             base64_img = encode_image(img)
             content.append({
                 "type": "image_url",
@@ -127,10 +130,8 @@ class OpenAIModel(BaseModel):
                              f"${'{0:.2f}'.format(prompt_tokens / 1000 * 0.01 + completion_tokens / 1000 * 0.03)}",
                              "yellow")
 
-        # Stop monitoring and print summary
+        # Print response time
         print_with_color(f"Response time: {response_time:.2f}s", "yellow")
-        monitor.stop()
-        monitor.print_summary()
 
         return True, content
 
@@ -158,49 +159,87 @@ class OllamaModel(BaseModel):
         Returns:
             (success, response_text)
         """
-        # Start monitoring
-        monitor = SystemMonitor()
-        monitor.start()
         start_time = time.time()
+
+        # Optimize images before sending to model
+        optimized_images = []
+        for img_path in images:
+            optimized_path = optimize_image(img_path)
+            optimized_images.append(optimized_path)
+
+        # Debug logging
+        print_with_color(f"[DEBUG] Prompt length: {len(prompt)} chars", "cyan")
+        print_with_color(f"[DEBUG] Images: {len(optimized_images)} files", "cyan")
+        print_with_color(f"[DEBUG] Max tokens: {self.max_tokens}", "cyan")
+        for i, img_path in enumerate(optimized_images):
+            import os
+            if os.path.exists(img_path):
+                size_kb = os.path.getsize(img_path) / 1024
+                print_with_color(f"[DEBUG] Image {i+1}: {size_kb:.1f}KB - {img_path}", "cyan")
+            else:
+                print_with_color(f"[DEBUG] Image {i+1}: NOT FOUND - {img_path}", "red")
 
         try:
             # Ollama SDK accepts file paths directly!
-            response = ollama.chat(
-                model=self.model,
-                messages=[{
+            print_with_color(f"[DEBUG] Calling ollama.chat with model={self.model}", "cyan")
+            # Add system message to prevent thinking mode
+            messages = [
+                {
+                    'role': 'system',
+                    'content': 'You are a helpful assistant. Provide direct, concise responses without showing your reasoning process.'
+                },
+                {
                     'role': 'user',
                     'content': prompt,
-                    'images': images  # File paths as-is
-                }],
+                    'images': optimized_images  # Use optimized images
+                }
+            ]
+
+            response = ollama.chat(
+                model=self.model,
+                messages=messages,
                 options={
                     'temperature': self.temperature,
-                    'num_predict': self.max_tokens
+                    'num_predict': self.max_tokens,
+                    'num_ctx': 8192,  # Set context window explicitly
+                    'top_p': 0.9,  # Reduce randomness
+                    'repeat_penalty': 1.5  # Prevent infinite loops in thinking mode
                 }
             )
+            print_with_color(f"[DEBUG] ollama.chat completed", "cyan")
 
             # Calculate response time
             response_time = time.time() - start_time
 
-            # Extract content
-            content = response['message']['content']
+            # Debug: Print response structure (ChatResponse object, not dict)
+            print_with_color(f"[DEBUG] Response type: {type(response)}", "cyan")
+            print_with_color(f"[DEBUG] Response model: {response.model}", "cyan")
 
+            # Extract content from ChatResponse object
+            content = response.message.content
+
+            # If content is empty, try to use thinking field (qwen3-vl:4b sometimes uses this)
             if not content or len(content.strip()) == 0:
-                print_with_color("WARNING: Model returned empty content", "yellow")
-                return False, "Model returned empty response"
+                if hasattr(response.message, 'thinking') and response.message.thinking:
+                    print_with_color("WARNING: Content empty, using thinking field", "yellow")
+                    # Thinking field might be too verbose, skip it
+                    print_with_color(f"[DEBUG] Thinking length: {len(response.message.thinking)} chars", "yellow")
+                    return False, "Model returned empty content (only thinking field available)"
+                else:
+                    print_with_color("WARNING: Model returned empty content", "yellow")
+                    print_with_color(f"[DEBUG] Full message: {response.message}", "red")
+                    return False, "Model returned empty response"
 
             # Print summary
             print_with_color(f"Response time: {response_time:.2f}s", "yellow")
+            print_with_color(f"Response length: {len(content)} chars", "yellow")
             print_with_color(f"Images sent: {len(images)} file paths (no base64 encoding)", "cyan")
-
-            monitor.stop()
-            monitor.print_summary()
 
             return True, content
 
         except Exception as e:
             response_time = time.time() - start_time
             print_with_color(f"ERROR: Ollama request failed after {response_time:.2f}s: {e}", "red")
-            monitor.stop()
             return False, f"Ollama request failed: {str(e)}"
 
 

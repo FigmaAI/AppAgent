@@ -9,7 +9,7 @@ import time
 
 import prompts
 from config import load_config
-from and_controller import list_all_devices, AndroidController, traverse_tree
+from and_controller import list_all_devices, AndroidController, traverse_tree, start_emulator, list_available_emulators
 from model import parse_explore_rsp, parse_grid_rsp, OpenAIModel, OllamaModel
 from utils import print_with_color, draw_bbox_multi, draw_grid
 
@@ -91,8 +91,28 @@ else:
 
 device_list = list_all_devices()
 if not device_list:
-    print_with_color("ERROR: No device found!", "red")
-    sys.exit()
+    print_with_color("No Android device found.", "yellow")
+    print_with_color("Attempting to start emulator...", "green")
+
+    # Try to start emulator
+    if start_emulator():
+        # Refresh device list after emulator starts
+        device_list = list_all_devices()
+        if not device_list:
+            print_with_color("ERROR: Emulator started but device not detected!", "red")
+            sys.exit()
+    else:
+        print_with_color("ERROR: Failed to start emulator!", "red")
+        print_with_color("Please start an Android device or emulator manually and try again.", "yellow")
+
+        # Show available emulators
+        avds = list_available_emulators()
+        if avds:
+            print_with_color(f"Available emulators: {', '.join(avds)}", "cyan")
+            print_with_color("You can start one manually with: emulator -avd <name>", "cyan")
+
+        sys.exit()
+
 print_with_color(f"List of devices attached:\n{str(device_list)}", "yellow")
 if len(device_list) == 1:
     device = device_list[0]

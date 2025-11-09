@@ -35,9 +35,147 @@ def list_all_devices():
     if result != "ERROR":
         devices = result.split("\n")[1:]
         for d in devices:
-            device_list.append(d.split()[0])
+            if d.strip():  # Skip empty lines
+                device_list.append(d.split()[0])
 
     return device_list
+
+
+def list_available_emulators():
+    """List all available Android emulators (AVDs)"""
+    import shutil
+
+    # Check if emulator command exists
+    emulator_path = shutil.which('emulator')
+    if not emulator_path:
+        # Try common paths
+        common_paths = [
+            os.path.expanduser("~/Library/Android/sdk/emulator/emulator"),
+            os.path.expanduser("~/Android/Sdk/emulator/emulator"),
+            "/opt/android-sdk/emulator/emulator"
+        ]
+        for path in common_paths:
+            if os.path.exists(path):
+                emulator_path = path
+                break
+
+    if not emulator_path:
+        print_with_color("ERROR: emulator command not found. Please install Android SDK.", "red")
+        return []
+
+    # List AVDs
+    result = subprocess.run([emulator_path, '-list-avds'],
+                          stdout=subprocess.PIPE,
+                          stderr=subprocess.PIPE,
+                          text=True)
+
+    if result.returncode == 0:
+        avds = [avd.strip() for avd in result.stdout.strip().split('\n') if avd.strip()]
+        return avds
+    return []
+
+
+def start_emulator(avd_name=None, wait_for_boot=True):
+    """
+    Start an Android emulator
+
+    Args:
+        avd_name: Name of AVD to start (if None, uses first available)
+        wait_for_boot: Wait for emulator to fully boot
+
+    Returns:
+        True if successful, False otherwise
+    """
+    import time
+    import shutil
+
+    # Get emulator path
+    emulator_path = shutil.which('emulator')
+    if not emulator_path:
+        common_paths = [
+            os.path.expanduser("~/Library/Android/sdk/emulator/emulator"),
+            os.path.expanduser("~/Android/Sdk/emulator/emulator"),
+            "/opt/android-sdk/emulator/emulator"
+        ]
+        for path in common_paths:
+            if os.path.exists(path):
+                emulator_path = path
+                break
+
+    if not emulator_path:
+        print_with_color("ERROR: emulator command not found", "red")
+        print_with_color("Please install Android SDK or set ANDROID_HOME environment variable", "yellow")
+        return False
+
+    # Get AVD list
+    avds = list_available_emulators()
+    if not avds:
+        print_with_color("ERROR: No Android emulators (AVDs) found", "red")
+        print_with_color("Create an AVD using Android Studio or avdmanager", "yellow")
+        return False
+
+    # Select AVD
+    if avd_name is None:
+        avd_name = avds[0]
+        print_with_color(f"Using first available emulator: {avd_name}", "yellow")
+    elif avd_name not in avds:
+        print_with_color(f"ERROR: AVD '{avd_name}' not found", "red")
+        print_with_color(f"Available AVDs: {', '.join(avds)}", "yellow")
+        return False
+
+    # Start emulator in background with cold boot
+    print_with_color(f"Starting emulator: {avd_name} (cold boot)...", "green")
+    subprocess.Popen([emulator_path, '-avd', avd_name, '-no-snapshot-load'],
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL)
+
+    if wait_for_boot:
+        return wait_for_device()
+
+    return True
+
+
+def wait_for_device(timeout=120):
+    """
+    Wait for Android device to be ready
+
+    Args:
+        timeout: Maximum seconds to wait
+
+    Returns:
+        True if device is ready, False if timeout
+    """
+    import time
+
+    print_with_color(f"Waiting for device to be ready (timeout: {timeout}s)...", "yellow")
+
+    # Wait for device to be detected
+    start_time = time.time()
+    while time.time() - start_time < timeout:
+        devices = list_all_devices()
+        if devices:
+            print_with_color(f"Device detected: {devices[0]}", "green")
+            break
+        time.sleep(2)
+    else:
+        print_with_color("ERROR: Timeout waiting for device", "red")
+        return False
+
+    # Wait for device to boot completely
+    print_with_color("Waiting for device to boot completely...", "yellow")
+    adb_command = "adb wait-for-device shell getprop sys.boot_completed"
+
+    start_time = time.time()
+    while time.time() - start_time < timeout:
+        result = execute_adb(adb_command)
+        if result == "1":
+            print_with_color("✓ Device is ready!", "green")
+            time.sleep(2)  # Extra wait for stability
+            return True
+        time.sleep(3)
+
+    print_with_color("ERROR: Device did not boot in time", "red")
+    return False
 
 
 def get_id_from_element(elem):
