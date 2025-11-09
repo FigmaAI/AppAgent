@@ -8,8 +8,7 @@ import requests
 import ollama
 
 from config import load_config
-from utils import print_with_color, SystemMonitor
-from temp_image_server import get_global_server
+from utils import print_with_color, encode_image, SystemMonitor
 
 
 class BaseModel:
@@ -23,8 +22,7 @@ class BaseModel:
 
 class OpenAIModel(BaseModel):
     """
-    OpenAI Model using HTTP URLs for images (no base64 encoding).
-    Uses temporary HTTP server to serve local files.
+    OpenAI Model using base64 encoding for images.
     """
     def __init__(self, base_url: str, api_key: str, model: str, temperature: float, max_tokens: int):
         super().__init__()
@@ -33,14 +31,11 @@ class OpenAIModel(BaseModel):
         self.model = model
         self.temperature = temperature
         self.max_tokens = max_tokens
-
-        # Start temp image server for serving files via HTTP
-        self.image_server = get_global_server()
-        print_with_color(f"✓ OpenAI Model initialized: {model} (using HTTP URLs)", "green")
+        print_with_color(f"✓ OpenAI Model initialized: {model} (using base64 encoding)", "green")
 
     def get_model_response(self, prompt: str, images: List[str]) -> (bool, str):
         """
-        Get model response using HTTP URLs for images.
+        Get model response using base64 encoding for images.
 
         Args:
             prompt: Text prompt
@@ -61,16 +56,16 @@ class OpenAIModel(BaseModel):
             }
         ]
 
-        # Convert file paths to HTTP URLs
+        # Encode images to base64
         for img in images:
-            image_url = self.image_server.get_url(img)
+            base64_img = encode_image(img)
             content.append({
                 "type": "image_url",
                 "image_url": {
-                    "url": image_url  # HTTP URL instead of base64!
+                    "url": f"data:image/jpeg;base64,{base64_img}"
                 }
             })
-            print_with_color(f"Image served via HTTP: {image_url}", "cyan")
+            print_with_color(f"Image encoded to base64: {img}", "cyan")
         headers = {
             "Content-Type": "application/json",
             "Authorization": f"Bearer {self.api_key}"
