@@ -14,7 +14,7 @@ from config import load_config
 from and_controller import list_all_devices, AndroidController, traverse_tree, start_emulator, list_available_emulators
 from web_controller import WebController
 from model import parse_explore_rsp, parse_reflect_rsp, parse_grid_rsp, OpenAIModel, OllamaModel
-from utils import print_with_color, draw_bbox_multi, append_to_log, draw_grid
+from utils import print_with_color, draw_bbox_multi, append_to_log, append_images_as_table, draw_grid
 
 def calculate_grid_coordinates(area, subarea, screen_width, screen_height, rows, cols):
     """
@@ -244,17 +244,13 @@ while round_count < configs["MAX_ROUNDS"]:
     draw_bbox_multi(screenshot_before, os.path.join(task_dir, f"{round_count}_before_labeled.png"), elem_list,
                     dark_mode=configs["DARK_MODE"])
 
-    # Add the screenshot to the report markdown file
-    append_to_log(
-        f"![Before action](./{round_count}_before.png)",
-        report_log_path,
-        break_line=False,
-    )
-
-    # Add the labeled image to the report markdown file
-    append_to_log(
-        f"![Before action labeled](./{round_count}_before_labeled.png)",
-        report_log_path,
+    # Add the screenshots as a table to the report markdown file
+    append_images_as_table(
+        [
+            ("Before action", f"./{round_count}_before.png"),
+            ("Before action labeled", f"./{round_count}_before_labeled.png")
+        ],
+        report_log_path
     )
 
     prompt = re.sub(r"<task_description>", task_desc, prompts.self_explore_task_template)

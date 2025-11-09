@@ -41,6 +41,27 @@ def append_to_log(text: str, log_file: str, break_line: bool = True):
         f.write(text + ("\n" if break_line else ""))
 
 
+def append_images_as_table(images: list, log_file: str):
+    """
+    Append multiple images as a markdown table.
+
+    Args:
+        images: List of tuples (alt_text, image_path)
+                e.g., [("Before action", "./1_before.png"), ("After action", "./1_after.png")]
+        log_file: Path to the log file
+    """
+    if not images:
+        return
+
+    with open(log_file, "a") as f:
+        # Header row with alt texts
+        f.write("| " + " | ".join([alt for alt, _ in images]) + " |\n")
+        # Separator row
+        f.write("|" + "|".join(["------" for _ in images]) + "|\n")
+        # Image row
+        f.write("| " + " | ".join([f"![{alt}]({path})" for alt, path in images]) + " |\n\n")
+
+
 def draw_bbox_multi(img_path, output_path, elem_list, record_mode=False, dark_mode=False):
     imgcv = cv2.imread(img_path)
     count = 1
