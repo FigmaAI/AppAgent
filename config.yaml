@@ -1,4 +1,4 @@
-MODEL: "api"  # Choose "api" for OpenAI-compatible APIs (OpenAI, OpenRouter, etc.) or "local" for Ollama
+MODEL: "local"  # Choose "api" for OpenAI-compatible APIs (OpenAI, OpenRouter, etc.) or "local" for Ollama
 
 # API Model Configuration (OpenAI, OpenRouter, or any OpenAI-compatible API)
 API_BASE_URL: "https://api.openai.com/v1/chat/completions"
