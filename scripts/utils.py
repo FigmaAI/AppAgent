@@ -1,4 +1,3 @@
-import base64
 import os
 import cv2
 import pyshine as ps
@@ -109,61 +108,3 @@ def draw_grid(img_path, output_path):
     return rows, cols
 
 
-def optimize_image(image_path, max_width=1280, max_height=720, quality=85):
-    """
-    Optimize image for vision model input to reduce token usage.
-
-    Reduces image size by:
-    1. Resizing to maximum dimensions while maintaining aspect ratio
-    2. Compressing with JPEG quality setting
-
-    Args:
-        image_path: Path to the image file
-        max_width: Maximum width in pixels (default: 1280)
-        max_height: Maximum height in pixels (default: 720)
-        quality: JPEG compression quality 1-100 (default: 85)
-
-    Returns:
-        Path to the optimized image (overwrites original)
-
-    Expected reduction: 50-70% for typical screenshots
-    """
-    try:
-        # Read image
-        img = cv2.imread(image_path)
-        if img is None:
-            print_with_color(f"WARNING: Could not read image {image_path}, skipping optimization", "yellow")
-            return image_path
-
-        h, w = img.shape[:2]
-        original_size = os.path.getsize(image_path)
-
-        # Calculate new dimensions if image is larger than max
-        if w > max_width or h > max_height:
-            # Maintain aspect ratio
-            ratio = min(max_width / w, max_height / h)
-            new_width = int(w * ratio)
-            new_height = int(h * ratio)
-
-            # Resize using high-quality interpolation
-            img = cv2.resize(img, (new_width, new_height), interpolation=cv2.INTER_AREA)
-            print_with_color(f"Image resized: {w}x{h} → {new_width}x{new_height}", "cyan")
-
-        # Save with JPEG compression
-        cv2.imwrite(image_path, img, [cv2.IMWRITE_JPEG_QUALITY, quality])
-
-        # Report compression results
-        new_size = os.path.getsize(image_path)
-        reduction = (1 - new_size / original_size) * 100
-        print_with_color(f"Image optimized: {original_size//1024}KB → {new_size//1024}KB ({reduction:.1f}% reduction)", "green")
-
-        return image_path
-
-    except Exception as e:
-        print_with_color(f"ERROR: Image optimization failed: {e}", "red")
-        return image_path
-
-
-def encode_image(image_path):
-    with open(image_path, "rb") as image_file:
-        return base64.b64encode(image_file.read()).decode('utf-8')

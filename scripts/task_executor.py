@@ -22,14 +22,14 @@ args = vars(parser.parse_args())
 configs = load_config()
 
 if configs["MODEL"] == "api":
-    # OpenAI API: Uses base64 encoding with image optimization
+    # OpenAI API: Uses HTTP URLs via temporary server
     mllm = OpenAIModel(base_url=configs["API_BASE_URL"],
                        api_key=configs["API_KEY"],
                        model=configs["API_MODEL"],
                        temperature=configs["TEMPERATURE"],
                        max_tokens=configs["MAX_TOKENS"])
 elif configs["MODEL"] == "local":
-    # Ollama: Uses file paths directly (no base64 encoding!)
+    # Ollama: Uses native SDK with file paths directly (no base64 encoding!)
     mllm = OllamaModel(model=configs["LOCAL_MODEL"],
                        temperature=configs["TEMPERATURE"],
                        max_tokens=configs["MAX_TOKENS"])

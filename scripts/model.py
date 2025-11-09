@@ -8,7 +8,8 @@ import requests
 import ollama
 
 from config import load_config
-from utils import print_with_color, encode_image, optimize_image, SystemMonitor
+from utils import print_with_color, SystemMonitor
+from temp_image_server import get_global_server
 
 
 class BaseModel:
@@ -21,6 +22,10 @@ class BaseModel:
 
 
 class OpenAIModel(BaseModel):
+    """
+    OpenAI Model using HTTP URLs for images (no base64 encoding).
+    Uses temporary HTTP server to serve local files.
+    """
     def __init__(self, base_url: str, api_key: str, model: str, temperature: float, max_tokens: int):
         super().__init__()
         self.base_url = base_url
@@ -29,14 +34,21 @@ class OpenAIModel(BaseModel):
         self.temperature = temperature
         self.max_tokens = max_tokens
 
-        # Load image optimization settings
-        configs = load_config()
-        self.optimize_images = configs.get("OPTIMIZE_IMAGES", True)
-        self.image_max_width = configs.get("IMAGE_MAX_WIDTH", 1280)
-        self.image_max_height = configs.get("IMAGE_MAX_HEIGHT", 720)
-        self.image_quality = configs.get("IMAGE_QUALITY", 85)
+        # Start temp image server for serving files via HTTP
+        self.image_server = get_global_server()
+        print_with_color(f"✓ OpenAI Model initialized: {model} (using HTTP URLs)", "green")
 
     def get_model_response(self, prompt: str, images: List[str]) -> (bool, str):
+        """
+        Get model response using HTTP URLs for images.
+
+        Args:
+            prompt: Text prompt
+            images: List of file paths
+
+        Returns:
+            (success, response_text)
+        """
         # Start system monitoring
         monitor = SystemMonitor()
         monitor.start()
@@ -48,18 +60,17 @@ class OpenAIModel(BaseModel):
                 "text": prompt
             }
         ]
-        for img in images:
-            # Optimize image to reduce token usage (especially important for Ollama)
-            if self.optimize_images:
-                img = optimize_image(img, self.image_max_width, self.image_max_height, self.image_quality)
 
-            base64_img = encode_image(img)
+        # Convert file paths to HTTP URLs
+        for img in images:
+            image_url = self.image_server.get_url(img)
             content.append({
                 "type": "image_url",
                 "image_url": {
-                    "url": f"data:image/jpeg;base64,{base64_img}"
+                    "url": image_url  # HTTP URL instead of base64!
                 }
             })
+            print_with_color(f"Image served via HTTP: {image_url}", "cyan")
         headers = {
             "Content-Type": "application/json",
             "Authorization": f"Bearer {self.api_key}"
