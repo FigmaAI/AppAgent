@@ -10,6 +10,7 @@ import time
 import prompts
 from config import load_config
 from and_controller import list_all_devices, AndroidController, traverse_tree
+from web_controller import WebController
 from model import parse_explore_rsp, parse_reflect_rsp, OpenAIModel
 from utils import print_with_color, draw_bbox_multi, append_to_log
 
@@ -17,6 +18,7 @@ arg_desc = "AppAgent - Autonomous Exploration"
 parser = argparse.ArgumentParser(formatter_class=argparse.RawDescriptionHelpFormatter, description=arg_desc)
 parser.add_argument("--app")
 parser.add_argument("--root_dir", default="./")
+parser.add_argument("--platform", choices=["android", "web"], default="android", help="Platform to automate")
 args = vars(parser.parse_args())
 
 configs = load_config()
@@ -39,9 +41,13 @@ else:
 
 app = args["app"]
 root_dir = args["root_dir"]
+platform = args["platform"]
 
 if not app:
-    print_with_color("What is the name of the target app?", "blue")
+    if platform == "android":
+        print_with_color("What is the name of the target app?", "blue")
+    else:
+        print_with_color("What name would you like to give to this web exploration session?", "blue")
     app = input()
     app = app.replace(" ", "")
 
@@ -65,23 +71,36 @@ explore_log_path = os.path.join(task_dir, f"log_explore_{task_name}.txt")
 reflect_log_path = os.path.join(task_dir, f"log_reflect_{task_name}.txt")
 report_log_path = os.path.join(task_dir, f"log_report_{task_name}.md")
 
-device_list = list_all_devices()
-if not device_list:
-    print_with_color("ERROR: No device found!", "red")
-    sys.exit()
-print_with_color(f"List of devices attached:\n{str(device_list)}", "yellow")
-if len(device_list) == 1:
-    device = device_list[0]
-    print_with_color(f"Device selected: {device}", "yellow")
-else:
-    print_with_color("Please choose the Android device to start demo by entering its ID:", "blue")
-    device = input()
-controller = AndroidController(device)
-width, height = controller.get_device_size()
-if not width and not height:
-    print_with_color("ERROR: Invalid device size!", "red")
-    sys.exit()
-print_with_color(f"Screen resolution of {device}: {width}x{height}", "yellow")
+# Initialize controller based on platform
+if platform == "android":
+    device_list = list_all_devices()
+    if not device_list:
+        print_with_color("ERROR: No device found!", "red")
+        sys.exit()
+    print_with_color(f"List of devices attached:\n{str(device_list)}", "yellow")
+    if len(device_list) == 1:
+        device = device_list[0]
+        print_with_color(f"Device selected: {device}", "yellow")
+    else:
+        print_with_color("Please choose the Android device to start demo by entering its ID:", "blue")
+        device = input()
+    controller = AndroidController(device)
+    width, height = controller.get_device_size()
+    if not width and not height:
+        print_with_color("ERROR: Invalid device size!", "red")
+        sys.exit()
+    print_with_color(f"Screen resolution of {device}: {width}x{height}", "yellow")
+else:  # web
+    print_with_color("Please enter the URL you want to explore:", "blue")
+    url = input()
+    controller = WebController(
+        browser_type=configs.get("WEB_BROWSER_TYPE", "chromium"),
+        headless=configs.get("WEB_HEADLESS", False),
+        url=url
+    )
+    width = controller.width
+    height = controller.height
+    print_with_color(f"Browser resolution: {width}x{height}", "yellow")
 
 print_with_color("Please enter the description of the task you want me to complete in a few sentences:", "blue")
 task_desc = input()
@@ -102,13 +121,24 @@ while round_count < configs["MAX_ROUNDS"]:
     round_count += 1
     print_with_color(f"Round {round_count}", "yellow", log_file=report_log_path, heading_level=2)
     screenshot_before = controller.get_screenshot(f"{round_count}_before", task_dir)
-    xml_path = controller.get_xml(f"{round_count}", task_dir)
-    if screenshot_before == "ERROR" or xml_path == "ERROR":
-        break
-    clickable_list = []
-    focusable_list = []
-    traverse_tree(xml_path, clickable_list, "clickable", True)
-    traverse_tree(xml_path, focusable_list, "focusable", True)
+
+    # Get interactive elements based on platform
+    if platform == "android":
+        xml_path = controller.get_xml(f"{round_count}", task_dir)
+        if screenshot_before == "ERROR" or xml_path == "ERROR":
+            break
+        clickable_list = []
+        focusable_list = []
+        traverse_tree(xml_path, clickable_list, "clickable", True)
+        traverse_tree(xml_path, focusable_list, "focusable", True)
+    else:  # web
+        if screenshot_before == "ERROR":
+            break
+        # Save HTML for reference
+        html_path = controller.get_html(f"{round_count}", task_dir)
+        # Get interactive elements from page
+        clickable_list = controller.get_interactive_elements()
+        focusable_list = []  # Web uses same list for both
     elem_list = []
     for elem in clickable_list:
         if elem.uid in useless_list:

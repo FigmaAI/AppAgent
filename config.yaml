@@ -14,8 +14,15 @@ MAX_TOKENS: 300  # The max token limit for the response completion
 TEMPERATURE: 0.0  # The temperature of the model: the lower the value, the more consistent the output of the model
 REQUEST_INTERVAL: 10  # Time in seconds between consecutive requests
 
+# Android Configuration
 ANDROID_SCREENSHOT_DIR: "/sdcard"  # Set the directory on your Android device to store the intermediate screenshots. Make sure the directory EXISTS on your phone!
 ANDROID_XML_DIR: "/sdcard"  # Set the directory on your Android device to store the intermediate XML files used for determining locations of UI elements on your screen. Make sure the directory EXISTS on your phone!
+
+# Web Configuration (for Playwright-based web automation)
+WEB_BROWSER_TYPE: "chromium"  # Browser type: "chromium", "firefox", or "webkit"
+WEB_HEADLESS: false  # Run browser in headless mode (no GUI)
+WEB_VIEWPORT_WIDTH: 1280  # Browser viewport width
+WEB_VIEWPORT_HEIGHT: 720  # Browser viewport height
 
 DOC_REFINE: false  # Set this to true will make the agent refine existing documentation based on the latest demonstration; otherwise, the agent will not regenerate a new documentation for elements with the same resource ID.
 MAX_ROUNDS: 20  # Set the round limit for the agent to complete the task

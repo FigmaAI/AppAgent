@@ -1,6 +1,8 @@
 argparse
+beautifulsoup4
 colorama
 opencv-python
+playwright
 pyshine
 pyyaml
 requests
