@@ -4,15 +4,77 @@ import datetime
 import json
 import os
 import re
+import shutil
 import sys
 import time
 
+import cv2
 import prompts
 from config import load_config
 from and_controller import list_all_devices, AndroidController, traverse_tree
 from web_controller import WebController
-from model import parse_explore_rsp, parse_reflect_rsp, OpenAIModel
-from utils import print_with_color, draw_bbox_multi, append_to_log
+from model import parse_explore_rsp, parse_reflect_rsp, parse_grid_rsp, OpenAIModel
+from utils import print_with_color, draw_bbox_multi, append_to_log, draw_grid
+
+def calculate_grid_coordinates(area, subarea, screen_width, screen_height, rows, cols):
+    """
+    Calculate x, y coordinates from grid area number and subarea position.
+
+    Args:
+        area: Grid area number (1-indexed)
+        subarea: Subarea position ("center", "top-left", "top", "top-right", "left", "right", "bottom-left", "bottom", "bottom-right")
+        screen_width: Screen width in pixels
+        screen_height: Screen height in pixels
+        rows: Number of grid rows
+        cols: Number of grid columns
+
+    Returns:
+        (x, y) coordinates
+    """
+    # Calculate unit sizes (matching draw_grid logic)
+    def get_unit_len(n):
+        for i in range(1, n + 1):
+            if n % i == 0 and 120 <= i <= 180:
+                return i
+        return -1
+
+    unit_height = get_unit_len(screen_height)
+    if unit_height < 0:
+        unit_height = 120
+    unit_width = get_unit_len(screen_width)
+    if unit_width < 0:
+        unit_width = 120
+
+    # Convert area number to row and column (area is 1-indexed)
+    area_index = area - 1
+    row = area_index // cols
+    col = area_index % cols
+
+    # Calculate cell boundaries
+    left = int(col * unit_width)
+    top = int(row * unit_height)
+    right = int((col + 1) * unit_width)
+    bottom = int((row + 1) * unit_height)
+
+    # Calculate coordinates based on subarea
+    subarea_offsets = {
+        "center": (0.5, 0.5),
+        "top-left": (0.2, 0.2),
+        "top": (0.5, 0.2),
+        "top-right": (0.8, 0.2),
+        "left": (0.2, 0.5),
+        "right": (0.8, 0.5),
+        "bottom-left": (0.2, 0.8),
+        "bottom": (0.5, 0.8),
+        "bottom-right": (0.8, 0.8)
+    }
+
+    offset_x, offset_y = subarea_offsets.get(subarea, (0.5, 0.5))  # Default to center
+    x = int(left + (right - left) * offset_x)
+    y = int(top + (bottom - top) * offset_y)
+
+    return x, y
+
 
 arg_desc = "AppAgent - Autonomous Exploration"
 parser = argparse.ArgumentParser(formatter_class=argparse.RawDescriptionHelpFormatter, description=arg_desc)
@@ -186,15 +248,40 @@ while round_count < configs["MAX_ROUNDS"]:
             log_item = {"step": round_count, "prompt": prompt, "image": f"{round_count}_before_labeled.png",
                         "response": rsp}
             logfile.write(json.dumps(log_item) + "\n")
-        res = parse_explore_rsp(rsp, log_file=report_log_path)
+        res = parse_explore_rsp(rsp)
         act_name = res[0]
-        last_act = res[-1]
-        res = res[:-1]
+
+        # Extract reasoning information based on action type
         if act_name == "FINISH":
+            observation, think, act, last_act = res[1], res[2], res[3], res[4]
+            # Write reasoning to report
+            append_to_log(f"\n**Observation:** {observation}\n", report_log_path)
+            append_to_log(f"**Thought:** {think}\n", report_log_path)
+            append_to_log(f"**Action:** {act}\n", report_log_path)
+            append_to_log(f"**Summary:** {last_act}\n", report_log_path)
             task_complete = True
             break
+        elif act_name == "grid":
+            observation, think, act, last_act = res[1], res[2], res[3], res[4]
+        elif act_name in ["tap", "long_press"]:
+            last_act = res[2]
+            observation, think, act = res[3], res[4], res[5]
+        elif act_name == "text":
+            last_act = res[2]
+            observation, think, act = res[3], res[4], res[5]
+        elif act_name == "swipe":
+            last_act = res[4]
+            observation, think, act = res[5], res[6], res[7]
+        else:
+            observation = think = act = last_act = "Unknown"
+
+        # Write reasoning to report
+        append_to_log(f"\n**Observation:** {observation}\n", report_log_path)
+        append_to_log(f"**Thought:** {think}\n", report_log_path)
+        append_to_log(f"**Action:** {act}\n", report_log_path)
+        append_to_log(f"**Summary:** {last_act}\n", report_log_path)
         if act_name == "tap":
-            _, area = res
+            _, area, _, _, _, _ = res
             tl, br = elem_list[area - 1].bbox
             x, y = (tl[0] + br[0]) // 2, (tl[1] + br[1]) // 2
 
@@ -208,7 +295,7 @@ while round_count < configs["MAX_ROUNDS"]:
                 print_with_color("ERROR: tap execution failed", "red")
                 break
         elif act_name == "text":
-            _, input_str = res
+            _, input_str, _, _, _, _ = res
 
             # Draw a bounding box on the canvas image and save it
             screenshot_before_actioned = os.path.join(task_dir, f"{round_count}_before_labeled_action.png")
@@ -219,7 +306,7 @@ while round_count < configs["MAX_ROUNDS"]:
                 print_with_color("ERROR: text execution failed", "red")
                 break
         elif act_name == "long_press":
-            _, area = res
+            _, area, _, _, _, _ = res
             tl, br = elem_list[area - 1].bbox
             x, y = (tl[0] + br[0]) // 2, (tl[1] + br[1]) // 2
 
@@ -233,7 +320,7 @@ while round_count < configs["MAX_ROUNDS"]:
                 print_with_color("ERROR: long press execution failed", "red")
                 break
         elif act_name == "swipe":
-            _, area, swipe_dir, dist = res
+            _, area, swipe_dir, dist, _, _, _, _ = res
             tl, br = elem_list[area - 1].bbox
             x, y = (tl[0] + br[0]) // 2, (tl[1] + br[1]) // 2
 
@@ -245,6 +332,138 @@ while round_count < configs["MAX_ROUNDS"]:
             ret = controller.swipe(x, y, swipe_dir, dist)
             if ret == "ERROR":
                 print_with_color("ERROR: swipe execution failed", "red")
+                break
+        elif act_name == "grid":
+            # Grid mode - re-label the screen with grid overlay
+            grid_screenshot = os.path.join(task_dir, f"{round_count}_grid.png")
+            rows, cols = draw_grid(screenshot_before, grid_screenshot)
+            print_with_color("Grid mode activated. Waiting for grid-based action...", "yellow")
+
+            # Add grid screenshot to report
+            append_to_log(
+                f"![Grid overlay](./{round_count}_grid.png)",
+                report_log_path,
+            )
+
+            # Ask model for grid-based action
+            prompt = re.sub(r"<task_description>", task_desc, prompts.task_template_grid)
+            prompt = re.sub(r"<last_act>", last_act, prompt)
+
+            status, grid_rsp = mllm.get_model_response(prompt, [grid_screenshot])
+            if not status:
+                print_with_color(f"ERROR: {grid_rsp}", "red")
+                break
+
+            grid_res = parse_grid_rsp(grid_rsp)
+            grid_act_name = grid_res[0]
+
+            if grid_act_name == "FINISH":
+                observation, think, act, last_act = grid_res[1], grid_res[2], grid_res[3], grid_res[4]
+                # Write reasoning to report
+                append_to_log(f"\n**Observation:** {observation}\n", report_log_path)
+                append_to_log(f"**Thought:** {think}\n", report_log_path)
+                append_to_log(f"**Action:** {act}\n", report_log_path)
+                append_to_log(f"**Summary:** {last_act}\n", report_log_path)
+                task_complete = True
+                break
+            elif grid_act_name == "tap_grid":
+                _, area, subarea, last_act, observation, think, act = grid_res
+                # Write reasoning to report
+                append_to_log(f"\n**Observation:** {observation}\n", report_log_path)
+                append_to_log(f"**Thought:** {think}\n", report_log_path)
+                append_to_log(f"**Action:** {act}\n", report_log_path)
+                append_to_log(f"**Summary:** {last_act}\n", report_log_path)
+                x, y = calculate_grid_coordinates(area, subarea, width, height, rows, cols)
+                print_with_color(f"Grid tap: area {area}, subarea {subarea} -> ({x}, {y})", "yellow")
+
+                # Draw circle on the grid screenshot and save
+                screenshot_grid_actioned = os.path.join(task_dir, f"{round_count}_grid_action.png")
+                controller.get_screenshot_with_bbox(grid_screenshot, screenshot_grid_actioned, (x-5, y-5), (x+5, y+5))
+                controller.draw_circle(x, y, screenshot_grid_actioned)
+
+                ret = controller.tap(x, y)
+                if ret == "ERROR":
+                    print_with_color("ERROR: grid tap execution failed", "red")
+                    break
+
+                # Add actioned image to report
+                append_to_log(
+                    f"![Grid action](./{round_count}_grid_action.png)",
+                    report_log_path,
+                )
+            elif grid_act_name == "long_press_grid":
+                _, area, subarea, last_act, observation, think, act = grid_res
+                # Write reasoning to report
+                append_to_log(f"\n**Observation:** {observation}\n", report_log_path)
+                append_to_log(f"**Thought:** {think}\n", report_log_path)
+                append_to_log(f"**Action:** {act}\n", report_log_path)
+                append_to_log(f"**Summary:** {last_act}\n", report_log_path)
+                x, y = calculate_grid_coordinates(area, subarea, width, height, rows, cols)
+                print_with_color(f"Grid long press: area {area}, subarea {subarea} -> ({x}, {y})", "yellow")
+
+                # Draw circle on the grid screenshot and save
+                screenshot_grid_actioned = os.path.join(task_dir, f"{round_count}_grid_action.png")
+                controller.get_screenshot_with_bbox(grid_screenshot, screenshot_grid_actioned, (x-5, y-5), (x+5, y+5))
+                controller.draw_circle(x, y, screenshot_grid_actioned)
+
+                ret = controller.long_press(x, y)
+                if ret == "ERROR":
+                    print_with_color("ERROR: grid long press execution failed", "red")
+                    break
+
+                # Add actioned image to report
+                append_to_log(
+                    f"![Grid action](./{round_count}_grid_action.png)",
+                    report_log_path,
+                )
+            elif grid_act_name == "swipe_grid":
+                _, start_area, start_subarea, end_area, end_subarea, last_act, observation, think, act = grid_res
+                # Write reasoning to report
+                append_to_log(f"\n**Observation:** {observation}\n", report_log_path)
+                append_to_log(f"**Thought:** {think}\n", report_log_path)
+                append_to_log(f"**Action:** {act}\n", report_log_path)
+                append_to_log(f"**Summary:** {last_act}\n", report_log_path)
+                start_x, start_y = calculate_grid_coordinates(start_area, start_subarea, width, height, rows, cols)
+                end_x, end_y = calculate_grid_coordinates(end_area, end_subarea, width, height, rows, cols)
+                print_with_color(f"Grid swipe: from area {start_area}/{start_subarea} ({start_x},{start_y}) to area {end_area}/{end_subarea} ({end_x},{end_y})", "yellow")
+
+                # Draw arrow on the grid screenshot and save
+                screenshot_grid_actioned = os.path.join(task_dir, f"{round_count}_grid_action.png")
+                shutil.copy(grid_screenshot, screenshot_grid_actioned)
+                img = cv2.imread(screenshot_grid_actioned)
+                cv2.arrowedLine(img, (start_x, start_y), (end_x, end_y), (0, 0, 255), 3, tipLength=0.3)
+                cv2.imwrite(screenshot_grid_actioned, img)
+
+                # For web, use scroll; for Android, calculate direction
+                if platform == "web":
+                    # Determine scroll direction from coordinates
+                    if abs(end_y - start_y) > abs(end_x - start_x):
+                        direction = "down" if end_y > start_y else "up"
+                    else:
+                        direction = "right" if end_x > start_x else "left"
+                    ret = controller.scroll(direction)
+                else:
+                    # For Android, use swipe with calculated direction
+                    dx = end_x - start_x
+                    dy = end_y - start_y
+                    if abs(dy) > abs(dx):
+                        direction = "down" if dy > 0 else "up"
+                    else:
+                        direction = "right" if dx > 0 else "left"
+                    dist = "long"  # Grid swipes are typically longer
+                    ret = controller.swipe(start_x, start_y, direction, dist)
+
+                if ret == "ERROR":
+                    print_with_color("ERROR: grid swipe execution failed", "red")
+                    break
+
+                # Add actioned image to report
+                append_to_log(
+                    f"![Grid action](./{round_count}_grid_action.png)",
+                    report_log_path,
+                )
+            else:
+                print_with_color(f"ERROR: Undefined grid action {grid_act_name}!", "red")
                 break
         else:
             break
@@ -294,8 +513,17 @@ while round_count < configs["MAX_ROUNDS"]:
             log_item = {"step": round_count, "prompt": prompt, "image_before": f"{round_count}_before_labeled.png",
                         "image_after": f"{round_count}_after.png", "response": rsp}
             logfile.write(json.dumps(log_item) + "\n")
-        res = parse_reflect_rsp(rsp, log_file=report_log_path)
+        res = parse_reflect_rsp(rsp)
         decision = res[0]
+        reflect_think = res[1]
+        reflect_doc = res[2]
+
+        # Write reflection results to report
+        append_to_log(f"\n### Reflection\n", report_log_path)
+        append_to_log(f"**Decision:** {decision}\n", report_log_path)
+        append_to_log(f"**Thought:** {reflect_think}\n", report_log_path)
+        if reflect_doc:
+            append_to_log(f"**Documentation:** {reflect_doc}\n", report_log_path)
         if decision == "ERROR":
             break
         if decision == "INEFFECTIVE":
@@ -335,7 +563,7 @@ while round_count < configs["MAX_ROUNDS"]:
             print_with_color(f"ERROR: Undefined decision! {decision}", "red")
             break
     else:
-        print_with_color(rsp["error"]["message"], "red")
+        print_with_color(f"ERROR: {rsp}", "red")
         break
     time.sleep(configs["REQUEST_INTERVAL"])
 
