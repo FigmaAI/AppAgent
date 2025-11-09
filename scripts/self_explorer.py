@@ -13,7 +13,7 @@ import prompts
 from config import load_config
 from and_controller import list_all_devices, AndroidController, traverse_tree
 from web_controller import WebController
-from model import parse_explore_rsp, parse_reflect_rsp, parse_grid_rsp, OpenAIModel
+from model import parse_explore_rsp, parse_reflect_rsp, parse_grid_rsp, OpenAIModel, OllamaModel
 from utils import print_with_color, draw_bbox_multi, append_to_log, draw_grid
 
 def calculate_grid_coordinates(area, subarea, screen_width, screen_height, rows, cols):
@@ -86,15 +86,15 @@ args = vars(parser.parse_args())
 configs = load_config()
 
 if configs["MODEL"] == "api":
+    # OpenAI API: Uses base64 encoding with image optimization
     mllm = OpenAIModel(base_url=configs["API_BASE_URL"],
                        api_key=configs["API_KEY"],
                        model=configs["API_MODEL"],
                        temperature=configs["TEMPERATURE"],
                        max_tokens=configs["MAX_TOKENS"])
 elif configs["MODEL"] == "local":
-    mllm = OpenAIModel(base_url=configs["LOCAL_BASE_URL"],
-                       api_key=configs.get("LOCAL_API_KEY", "ollama"),  # Ollama doesn't require API key
-                       model=configs["LOCAL_MODEL"],
+    # Ollama: Uses file paths directly (no base64 encoding!)
+    mllm = OllamaModel(model=configs["LOCAL_MODEL"],
                        temperature=configs["TEMPERATURE"],
                        max_tokens=configs["MAX_TOKENS"])
 else:

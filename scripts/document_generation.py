@@ -8,7 +8,7 @@ import time
 
 import prompts
 from config import load_config
-from model import OpenAIModel
+from model import OpenAIModel, OllamaModel
 from utils import print_with_color
 
 arg_desc = "AppAgent - Human Demonstration"
@@ -21,15 +21,15 @@ args = vars(parser.parse_args())
 configs = load_config()
 
 if configs["MODEL"] == "api":
+    # OpenAI API: Uses base64 encoding with image optimization
     mllm = OpenAIModel(base_url=configs["API_BASE_URL"],
                        api_key=configs["API_KEY"],
                        model=configs["API_MODEL"],
                        temperature=configs["TEMPERATURE"],
                        max_tokens=configs["MAX_TOKENS"])
 elif configs["MODEL"] == "local":
-    mllm = OpenAIModel(base_url=configs["LOCAL_BASE_URL"],
-                       api_key=configs.get("LOCAL_API_KEY", "ollama"),  # Ollama doesn't require API key
-                       model=configs["LOCAL_MODEL"],
+    # Ollama: Uses file paths directly (no base64 encoding!)
+    mllm = OllamaModel(model=configs["LOCAL_MODEL"],
                        temperature=configs["TEMPERATURE"],
                        max_tokens=configs["MAX_TOKENS"])
 else:

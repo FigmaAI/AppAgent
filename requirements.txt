@@ -1,6 +1,7 @@
 argparse
 beautifulsoup4
 colorama
+ollama
 opencv-python
 playwright
 pyshine

@@ -5,6 +5,7 @@ from typing import List
 from http import HTTPStatus
 
 import requests
+import ollama
 
 from config import load_config
 from utils import print_with_color, encode_image, optimize_image, SystemMonitor
@@ -126,6 +127,75 @@ class OpenAIModel(BaseModel):
         monitor.print_summary()
 
         return True, content
+
+
+class OllamaModel(BaseModel):
+    """
+    Ollama Model using native Ollama SDK for optimal performance.
+    Uses file paths directly instead of base64 encoding.
+    """
+    def __init__(self, model: str, temperature: float, max_tokens: int):
+        super().__init__()
+        self.model = model
+        self.temperature = temperature
+        self.max_tokens = max_tokens
+        print_with_color(f"✓ Ollama Model initialized: {model}", "green")
+
+    def get_model_response(self, prompt: str, images: List[str]) -> (bool, str):
+        """
+        Get model response using Ollama SDK with file paths.
+
+        Args:
+            prompt: Text prompt
+            images: List of file paths (NOT base64!)
+
+        Returns:
+            (success, response_text)
+        """
+        # Start monitoring
+        monitor = SystemMonitor()
+        monitor.start()
+        start_time = time.time()
+
+        try:
+            # Ollama SDK accepts file paths directly!
+            response = ollama.chat(
+                model=self.model,
+                messages=[{
+                    'role': 'user',
+                    'content': prompt,
+                    'images': images  # File paths as-is
+                }],
+                options={
+                    'temperature': self.temperature,
+                    'num_predict': self.max_tokens
+                }
+            )
+
+            # Calculate response time
+            response_time = time.time() - start_time
+
+            # Extract content
+            content = response['message']['content']
+
+            if not content or len(content.strip()) == 0:
+                print_with_color("WARNING: Model returned empty content", "yellow")
+                return False, "Model returned empty response"
+
+            # Print summary
+            print_with_color(f"Response time: {response_time:.2f}s", "yellow")
+            print_with_color(f"Images sent: {len(images)} file paths (no base64 encoding)", "cyan")
+
+            monitor.stop()
+            monitor.print_summary()
+
+            return True, content
+
+        except Exception as e:
+            response_time = time.time() - start_time
+            print_with_color(f"ERROR: Ollama request failed after {response_time:.2f}s: {e}", "red")
+            monitor.stop()
+            return False, f"Ollama request failed: {str(e)}"
 
 
 def parse_explore_rsp(rsp):
