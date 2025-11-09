@@ -1,0 +1,3 @@
+[submodule "KleverDesktop"]
+	path = KleverDesktop
+	url = https://github.com/FigmaAI/KleverDesktop.git
