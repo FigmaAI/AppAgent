@@ -11,7 +11,7 @@ import prompts
 from config import load_config
 from and_controller import list_all_devices, AndroidController, traverse_tree
 from model import parse_explore_rsp, parse_reflect_rsp, OpenAIModel
-from utils import print_with_color, draw_bbox_multi
+from utils import print_with_color, draw_bbox_multi, append_to_log
 
 arg_desc = "AppAgent - Autonomous Exploration"
 parser = argparse.ArgumentParser(formatter_class=argparse.RawDescriptionHelpFormatter, description=arg_desc)
@@ -63,6 +63,7 @@ if not os.path.exists(docs_dir):
     os.mkdir(docs_dir)
 explore_log_path = os.path.join(task_dir, f"log_explore_{task_name}.txt")
 reflect_log_path = os.path.join(task_dir, f"log_reflect_{task_name}.txt")
+report_log_path = os.path.join(task_dir, f"log_report_{task_name}.md")
 
 device_list = list_all_devices()
 if not device_list:
@@ -90,9 +91,16 @@ doc_count = 0
 useless_list = set()
 last_act = "None"
 task_complete = False
+
+# Write the report markdown file
+append_to_log(f"# User Testing Report for {app}", report_log_path)
+append_to_log(task_name, report_log_path)
+append_to_log(f"## Task Description", report_log_path)
+append_to_log(task_desc, report_log_path)
+
 while round_count < configs["MAX_ROUNDS"]:
     round_count += 1
-    print_with_color(f"Round {round_count}", "yellow")
+    print_with_color(f"Round {round_count}", "yellow", log_file=report_log_path, heading_level=2)
     screenshot_before = controller.get_screenshot(f"{round_count}_before", task_dir)
     xml_path = controller.get_xml(f"{round_count}", task_dir)
     if screenshot_before == "ERROR" or xml_path == "ERROR":
@@ -124,6 +132,19 @@ while round_count < configs["MAX_ROUNDS"]:
     draw_bbox_multi(screenshot_before, os.path.join(task_dir, f"{round_count}_before_labeled.png"), elem_list,
                     dark_mode=configs["DARK_MODE"])
 
+    # Add the screenshot to the report markdown file
+    append_to_log(
+        f"![Before action](./{round_count}_before.png)",
+        report_log_path,
+        break_line=False,
+    )
+
+    # Add the labeled image to the report markdown file
+    append_to_log(
+        f"![Before action labeled](./{round_count}_before_labeled.png)",
+        report_log_path,
+    )
+
     prompt = re.sub(r"<task_description>", task_desc, prompts.self_explore_task_template)
     prompt = re.sub(r"<last_act>", last_act, prompt)
     base64_img_before = os.path.join(task_dir, f"{round_count}_before_labeled.png")
@@ -135,7 +156,7 @@ while round_count < configs["MAX_ROUNDS"]:
             log_item = {"step": round_count, "prompt": prompt, "image": f"{round_count}_before_labeled.png",
                         "response": rsp}
             logfile.write(json.dumps(log_item) + "\n")
-        res = parse_explore_rsp(rsp)
+        res = parse_explore_rsp(rsp, log_file=report_log_path)
         act_name = res[0]
         last_act = res[-1]
         res = res[:-1]
@@ -146,12 +167,23 @@ while round_count < configs["MAX_ROUNDS"]:
             _, area = res
             tl, br = elem_list[area - 1].bbox
             x, y = (tl[0] + br[0]) // 2, (tl[1] + br[1]) // 2
+
+            # Draw a bounding box on the canvas image and save it
+            screenshot_before_actioned = os.path.join(task_dir, f"{round_count}_before_labeled_action.png")
+            controller.get_screenshot_with_bbox(screenshot_before, screenshot_before_actioned, tl, br)
+            controller.draw_circle(x, y, screenshot_before_actioned)
+
             ret = controller.tap(x, y)
             if ret == "ERROR":
                 print_with_color("ERROR: tap execution failed", "red")
                 break
         elif act_name == "text":
             _, input_str = res
+
+            # Draw a bounding box on the canvas image and save it
+            screenshot_before_actioned = os.path.join(task_dir, f"{round_count}_before_labeled_action.png")
+            controller.get_screenshot_with_bbox(screenshot_before, screenshot_before_actioned, tl, br)
+
             ret = controller.text(input_str)
             if ret == "ERROR":
                 print_with_color("ERROR: text execution failed", "red")
@@ -160,6 +192,12 @@ while round_count < configs["MAX_ROUNDS"]:
             _, area = res
             tl, br = elem_list[area - 1].bbox
             x, y = (tl[0] + br[0]) // 2, (tl[1] + br[1]) // 2
+
+            # Draw a bounding box on the canvas image and save it
+            screenshot_before_actioned = os.path.join(task_dir, f"{round_count}_before_labeled_action.png")
+            controller.get_screenshot_with_bbox(screenshot_before, screenshot_before_actioned, tl, br)
+            controller.draw_circle(x, y, screenshot_before_actioned)
+
             ret = controller.long_press(x, y)
             if ret == "ERROR":
                 print_with_color("ERROR: long press execution failed", "red")
@@ -168,6 +206,12 @@ while round_count < configs["MAX_ROUNDS"]:
             _, area, swipe_dir, dist = res
             tl, br = elem_list[area - 1].bbox
             x, y = (tl[0] + br[0]) // 2, (tl[1] + br[1]) // 2
+
+            # Draw a bounding box on the canvas image and save it
+            screenshot_before_actioned = os.path.join(task_dir, f"{round_count}_before_labeled_action.png")
+            controller.get_screenshot_with_bbox(screenshot_before, screenshot_before_actioned, tl, br)
+            controller.draw_arrow(x, y, swipe_dir, dist, screenshot_before_actioned)
+
             ret = controller.swipe(x, y, swipe_dir, dist)
             if ret == "ERROR":
                 print_with_color("ERROR: swipe execution failed", "red")
@@ -175,6 +219,12 @@ while round_count < configs["MAX_ROUNDS"]:
         else:
             break
         time.sleep(configs["REQUEST_INTERVAL"])
+
+        # Add the actioned image to the report markdown file
+        append_to_log(
+            f"![Before action labeled action](./{round_count}_before_labeled_action.png)",
+            report_log_path,
+        )
     else:
         print_with_color(rsp, "red")
         break
@@ -214,7 +264,7 @@ while round_count < configs["MAX_ROUNDS"]:
             log_item = {"step": round_count, "prompt": prompt, "image_before": f"{round_count}_before_labeled.png",
                         "image_after": f"{round_count}_after.png", "response": rsp}
             logfile.write(json.dumps(log_item) + "\n")
-        res = parse_reflect_rsp(rsp)
+        res = parse_reflect_rsp(rsp, log_file=report_log_path)
         decision = res[0]
         if decision == "ERROR":
             break
