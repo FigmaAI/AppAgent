@@ -174,6 +174,106 @@ python run.py
 Please refer to  [evaluation benchmark](https://github.com/mnotgod96/AppAgent/blob/main/assets/testset.md).
 
 
+## 🎨 For Figma Integration
+
+### Overview
+This fork has been enhanced to work seamlessly with the [KleverDesktop](https://github.com/FigmaAI/KleverDesktop) wrapper application for Figma-related automation tasks.
+
+### Key Features
+
+#### 1. Dual Model Support
+- **API Mode**: Use OpenAI, OpenRouter, or any OpenAI-compatible API with `gpt-4o-mini` or other vision models
+- **Local Mode**: Run locally using Ollama with vision-capable models like `qwen3-vl:4b` (optimized for 16GB RAM)
+
+Configure in `config.yaml`:
+```yaml
+MODEL: "local"  # or "api"
+LOCAL_MODEL: "qwen3-vl:4b"  # For local mode
+API_MODEL: "gpt-4o-mini"    # For API mode
+```
+
+#### 2. Image Optimization
+To reduce token usage and costs, images are automatically optimized before being sent to vision models:
+- Resizes images to a maximum of 512x512 (configurable)
+- Maintains aspect ratio
+- Applies JPEG compression (quality: 85)
+- Typically reduces token usage by 50-70%
+
+Configure in `config.yaml`:
+```yaml
+OPTIMIZE_IMAGES: true
+IMAGE_MAX_WIDTH: 512
+IMAGE_MAX_HEIGHT: 512
+IMAGE_QUALITY: 85
+```
+
+#### 3. Web Automation Support
+Supports web automation using Playwright for browser-based tasks:
+- Chromium, Firefox, and WebKit browsers
+- Configurable viewport size
+- Headless or headed mode
+
+Configure in `config.yaml`:
+```yaml
+WEB_BROWSER_TYPE: "chromium"
+WEB_VIEWPORT_WIDTH: 1280
+WEB_VIEWPORT_HEIGHT: 720
+WEB_HEADLESS: false
+```
+
+#### 4. Enhanced Markdown Reports
+Exploration and execution reports now display images in a professional table format:
+
+```markdown
+| Before action | Before action labeled |
+|---------------|----------------------|
+| ![img1](...)  | ![img2](...)        |
+```
+
+### Setup for KleverDesktop Integration
+
+1. **Clone this repository as a submodule** in your KleverDesktop project:
+```bash
+cd KleverDesktop
+git submodule add https://github.com/FigmaAI/AppAgent.git AppAgent
+git submodule update --init --recursive
+```
+
+2. **Install dependencies**:
+```bash
+cd AppAgent
+pip install -r requirements.txt
+```
+
+3. **Configure your model** in `config.yaml`:
+   - For local development: Use Ollama with `qwen3-vl:4b` (free, runs locally)
+   - For production: Use OpenAI API or OpenRouter
+
+4. **Run exploration or deployment**:
+```bash
+# Exploration phase
+python learn.py
+
+# Deployment phase
+python run.py
+```
+
+### Model Recommendations
+
+| Use Case | Recommended Model | Configuration |
+|----------|------------------|---------------|
+| Local development (16GB RAM) | `qwen3-vl:4b` via Ollama | `MODEL: "local"` |
+| Production (cost-effective) | `gpt-4o-mini` via API | `MODEL: "api"` |
+| Production (best quality) | `gpt-4o` via API | `MODEL: "api"` |
+
+### Token Optimization Tips
+
+1. **Enable image optimization**: Set `OPTIMIZE_IMAGES: true` in config.yaml
+2. **Use smaller models**: `gpt-4o-mini` is 60% cheaper than `gpt-4o` with similar performance
+3. **Local models**: Use Ollama for free inference (but slower on CPU)
+4. **Adjust max tokens**: Lower `MAX_TOKENS` if you don't need long responses
+
+
 ## 📖 To-Do List
 - [ ] Incorporate more LLM APIs into the project.
 - [x] Open source the Benchmark.
