@@ -1,9 +1,8 @@
 import os
-import shutil
 import subprocess
 import xml.etree.ElementTree as ET
-
 import cv2
+import shutil
 
 from config import load_config
 from utils import print_with_color
@@ -36,9 +35,147 @@ def list_all_devices():
     if result != "ERROR":
         devices = result.split("\n")[1:]
         for d in devices:
-            device_list.append(d.split()[0])
+            if d.strip():  # Skip empty lines
+                device_list.append(d.split()[0])
 
     return device_list
+
+
+def list_available_emulators():
+    """List all available Android emulators (AVDs)"""
+    import shutil
+
+    # Check if emulator command exists
+    emulator_path = shutil.which('emulator')
+    if not emulator_path:
+        # Try common paths
+        common_paths = [
+            os.path.expanduser("~/Library/Android/sdk/emulator/emulator"),
+            os.path.expanduser("~/Android/Sdk/emulator/emulator"),
+            "/opt/android-sdk/emulator/emulator"
+        ]
+        for path in common_paths:
+            if os.path.exists(path):
+                emulator_path = path
+                break
+
+    if not emulator_path:
+        print_with_color("ERROR: emulator command not found. Please install Android SDK.", "red")
+        return []
+
+    # List AVDs
+    result = subprocess.run([emulator_path, '-list-avds'],
+                          stdout=subprocess.PIPE,
+                          stderr=subprocess.PIPE,
+                          text=True)
+
+    if result.returncode == 0:
+        avds = [avd.strip() for avd in result.stdout.strip().split('\n') if avd.strip()]
+        return avds
+    return []
+
+
+def start_emulator(avd_name=None, wait_for_boot=True):
+    """
+    Start an Android emulator
+
+    Args:
+        avd_name: Name of AVD to start (if None, uses first available)
+        wait_for_boot: Wait for emulator to fully boot
+
+    Returns:
+        True if successful, False otherwise
+    """
+    import time
+    import shutil
+
+    # Get emulator path
+    emulator_path = shutil.which('emulator')
+    if not emulator_path:
+        common_paths = [
+            os.path.expanduser("~/Library/Android/sdk/emulator/emulator"),
+            os.path.expanduser("~/Android/Sdk/emulator/emulator"),
+            "/opt/android-sdk/emulator/emulator"
+        ]
+        for path in common_paths:
+            if os.path.exists(path):
+                emulator_path = path
+                break
+
+    if not emulator_path:
+        print_with_color("ERROR: emulator command not found", "red")
+        print_with_color("Please install Android SDK or set ANDROID_HOME environment variable", "yellow")
+        return False
+
+    # Get AVD list
+    avds = list_available_emulators()
+    if not avds:
+        print_with_color("ERROR: No Android emulators (AVDs) found", "red")
+        print_with_color("Create an AVD using Android Studio or avdmanager", "yellow")
+        return False
+
+    # Select AVD
+    if avd_name is None:
+        avd_name = avds[0]
+        print_with_color(f"Using first available emulator: {avd_name}", "yellow")
+    elif avd_name not in avds:
+        print_with_color(f"ERROR: AVD '{avd_name}' not found", "red")
+        print_with_color(f"Available AVDs: {', '.join(avds)}", "yellow")
+        return False
+
+    # Start emulator in background with cold boot
+    print_with_color(f"Starting emulator: {avd_name} (cold boot)...", "green")
+    subprocess.Popen([emulator_path, '-avd', avd_name, '-no-snapshot-load'],
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL)
+
+    if wait_for_boot:
+        return wait_for_device()
+
+    return True
+
+
+def wait_for_device(timeout=120):
+    """
+    Wait for Android device to be ready
+
+    Args:
+        timeout: Maximum seconds to wait
+
+    Returns:
+        True if device is ready, False if timeout
+    """
+    import time
+
+    print_with_color(f"Waiting for device to be ready (timeout: {timeout}s)...", "yellow")
+
+    # Wait for device to be detected
+    start_time = time.time()
+    while time.time() - start_time < timeout:
+        devices = list_all_devices()
+        if devices:
+            print_with_color(f"Device detected: {devices[0]}", "green")
+            break
+        time.sleep(2)
+    else:
+        print_with_color("ERROR: Timeout waiting for device", "red")
+        return False
+
+    # Wait for device to boot completely
+    print_with_color("Waiting for device to boot completely...", "yellow")
+    adb_command = "adb wait-for-device shell getprop sys.boot_completed"
+
+    start_time = time.time()
+    while time.time() - start_time < timeout:
+        result = execute_adb(adb_command)
+        if result == "1":
+            print_with_color("✓ Device is ready!", "green")
+            time.sleep(2)  # Extra wait for stability
+            return True
+        time.sleep(3)
+
+    print_with_color("ERROR: Device did not boot in time", "red")
+    return False
 
 
 def get_id_from_element(elem):
@@ -88,10 +225,6 @@ def traverse_tree(xml_path, elem_list, attrib, add_index=False):
         if event == 'end':
             path.pop()
 
-def append_to_log(text: str, log_file: str, break_line: bool = True):
-    with open(log_file, "a") as f:
-        f.write(text + ("\n" if break_line else ""))
-
 class AndroidController:
     def __init__(self, device):
         self.device = device
@@ -134,80 +267,6 @@ class AndroidController:
                 return os.path.join(save_dir, prefix + ".xml")
             return result
         return result
-    
-    def get_screenshot_with_bbox(self, screenshot_before, save_dir, tl, br):
-        # Copy the screenshot_before image
-        img_path = save_dir
-        shutil.copy(screenshot_before, img_path)
-
-        # Load the copied image
-        img = cv2.imread(img_path)
-
-        # Draw the bounding box on the image
-        cv2.rectangle(img, (int(tl[0]), int(tl[1])), (int(br[0]), int(br[1])), (0, 255, 0), 2)
-
-        # Save the image with the bounding box
-        cv2.imwrite(img_path, img)
-
-        return img_path
-
-
-    def draw_circle(self, x, y, img_path, r=10, thickness=2):
-        img = cv2.imread(img_path)
-        cv2.circle(img, (int(x), int(y)), r, (0, 0, 255), thickness)
-        cv2.imwrite(img_path, img)
-
-    def draw_arrow(x, y, direction, image_path, arrow_length=50, arrow_color=(0, 255, 0), thickness=2):
-        img = cv2.imread(image_path)
-        
-        # Define the arrow directions
-        if direction == "up":
-            end_point = (x, y - arrow_length)
-        elif direction == "down":
-            end_point = (x, y + arrow_length)
-        elif direction == "left":
-            end_point = (x - arrow_length, y)
-        elif direction == "right":
-            end_point = (x + arrow_length, y)
-        else:
-            raise ValueError(f"Invalid direction: {direction}")
-        
-        # Draw the arrow
-        cv2.arrowedLine(img, (x, y), end_point, arrow_color, thickness)
-        
-        # Save the modified image
-        cv2.imwrite(image_path, img)
-
-    def draw_arrow(self, x, y, direction, dist, image_path, arrow_color=(0, 255, 0), thickness=2):
-        img = cv2.imread(image_path)
-        
-        # Calculate the arrow length based on the screen width and dist
-        screen_width = img.shape[1]
-        unit_dist = int(screen_width / 10)
-        if dist == "long":
-            arrow_length = 3 * unit_dist
-        elif dist == "medium":
-            arrow_length = 2 * unit_dist
-        else:
-            arrow_length = unit_dist
-        
-        # Define the arrow directions
-        if direction == "up":
-            end_point = (x, y - arrow_length)
-        elif direction == "down":
-            end_point = (x, y + arrow_length)
-        elif direction == "left":
-            end_point = (x - arrow_length, y)
-        elif direction == "right":
-            end_point = (x + arrow_length, y)
-        else:
-            raise ValueError(f"Invalid direction: {direction}")
-        
-        # Draw the arrow
-        cv2.arrowedLine(img, (x, y), end_point, arrow_color, thickness)
-        
-        # Save the modified image
-        cv2.imwrite(image_path, img)
 
     def back(self):
         adb_command = f"adb -s {self.device} shell input keyevent KEYCODE_BACK"
@@ -258,3 +317,55 @@ class AndroidController:
         adb_command = f"adb -s {self.device} shell input swipe {start_x} {start_x} {end_x} {end_y} {duration}"
         ret = execute_adb(adb_command)
         return ret
+
+    def get_screenshot_with_bbox(self, screenshot_before, save_dir, tl, br):
+        # Copy the screenshot_before image
+        img_path = save_dir
+        shutil.copy(screenshot_before, img_path)
+
+        # Load the copied image
+        img = cv2.imread(img_path)
+
+        # Draw the bounding box on the image
+        cv2.rectangle(img, (int(tl[0]), int(tl[1])), (int(br[0]), int(br[1])), (0, 255, 0), 2)
+
+        # Save the image with the bounding box
+        cv2.imwrite(img_path, img)
+
+        return img_path
+
+    def draw_circle(self, x, y, img_path, r=10, thickness=2):
+        img = cv2.imread(img_path)
+        cv2.circle(img, (int(x), int(y)), r, (0, 0, 255), thickness)
+        cv2.imwrite(img_path, img)
+
+    def draw_arrow(self, x, y, direction, dist, image_path, arrow_color=(0, 255, 0), thickness=2):
+        img = cv2.imread(image_path)
+
+        # Calculate the arrow length based on the screen width and dist
+        screen_width = img.shape[1]
+        unit_dist = int(screen_width / 10)
+        if dist == "long":
+            arrow_length = 3 * unit_dist
+        elif dist == "medium":
+            arrow_length = 2 * unit_dist
+        else:
+            arrow_length = unit_dist
+
+        # Define the arrow directions
+        if direction == "up":
+            end_point = (x, y - arrow_length)
+        elif direction == "down":
+            end_point = (x, y + arrow_length)
+        elif direction == "left":
+            end_point = (x - arrow_length, y)
+        elif direction == "right":
+            end_point = (x + arrow_length, y)
+        else:
+            raise ValueError(f"Invalid direction: {direction}")
+
+        # Draw the arrow
+        cv2.arrowedLine(img, (x, y), end_point, arrow_color, thickness)
+
+        # Save the modified image
+        cv2.imwrite(image_path, img)

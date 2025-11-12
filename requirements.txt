@@ -1,7 +1,9 @@
 argparse
+beautifulsoup4
 colorama
-dashscope
+ollama
 opencv-python
+playwright
 pyshine
 pyyaml
 requests
