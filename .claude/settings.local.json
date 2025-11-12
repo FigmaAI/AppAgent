@@ -1,9 +1,0 @@
-{
-  "permissions": {
-    "allow": [
-      "Bash(main_utils.py)"
-    ],
-    "deny": [],
-    "ask": []
-  }
-}
