@@ -173,8 +173,13 @@ if platform == "android":
         sys.exit()
     print_with_color(f"Screen resolution of {device}: {width}x{height}", "yellow")
 else:  # web
-    print_with_color("Please enter the URL you want to explore:", "blue")
-    url = input()
+    # Check for environment variable first (for automated tests)
+    url = os.environ.get("TASK_URL")
+    if url:
+        print_with_color(f"Using URL from environment: {url}", "blue")
+    else:
+        print_with_color("Please enter the URL you want to explore:", "blue")
+        url = input()
     controller = WebController(
         browser_type=configs.get("WEB_BROWSER_TYPE", "chromium"),
         headless=configs.get("WEB_HEADLESS", False),
@@ -184,8 +189,13 @@ else:  # web
     height = controller.height
     print_with_color(f"Browser resolution: {width}x{height}", "yellow")
 
-print_with_color("Please enter the description of the task you want me to complete in a few sentences:", "blue")
-task_desc = input()
+# Check for environment variable first (for automated tests)
+task_desc = os.environ.get("TASK_DESCRIPTION")
+if task_desc:
+    print_with_color(f"Using task description from environment: {task_desc}", "blue")
+else:
+    print_with_color("Please enter the description of the task you want me to complete in a few sentences:", "blue")
+    task_desc = input()
 
 round_count = 0
 doc_count = 0
