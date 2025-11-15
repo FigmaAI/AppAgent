@@ -152,9 +152,34 @@ def start_emulator(avd_name=None, wait_for_boot=True):
 
     # Start emulator in background with cold boot
     print_with_color(f"Starting emulator: {avd_name} (cold boot)...", "green")
-    subprocess.Popen([emulator_path, '-avd', avd_name, '-no-snapshot-load'],
-                    stdout=subprocess.DEVNULL,
-                    stderr=subprocess.DEVNULL)
+    print_with_color(f"Emulator command: {emulator_path} -avd {avd_name} -no-snapshot-load", "yellow")
+
+    try:
+        process = subprocess.Popen(
+            [emulator_path, '-avd', avd_name, '-no-snapshot-load'],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True
+        )
+        # Give it a moment to start
+        import time
+        time.sleep(2)
+
+        # Check if process is still running
+        poll = process.poll()
+        if poll is not None:
+            # Process exited, read error
+            stdout, stderr = process.communicate()
+            print_with_color(f"Emulator failed to start (exit code: {poll})", "red")
+            if stderr:
+                print_with_color(f"Error: {stderr}", "red")
+            if stdout:
+                print_with_color(f"Output: {stdout}", "yellow")
+            return False
+
+    except Exception as e:
+        print_with_color(f"Failed to start emulator: {str(e)}", "red")
+        return False
 
     if wait_for_boot:
         return wait_for_device()
