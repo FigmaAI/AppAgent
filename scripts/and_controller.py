@@ -20,6 +20,16 @@ class AndroidElement:
 
 def execute_adb(adb_command):
     # print(adb_command)
+    # Check if ANDROID_HOME is set and adb needs to be resolved
+    if adb_command.startswith('adb ') or adb_command == 'adb':
+        android_home = os.environ.get('ANDROID_HOME')
+        if android_home:
+            adb_path = os.path.join(android_home, 'platform-tools', 'adb')
+            if os.path.exists(adb_path):
+                # Replace 'adb' with full path at the beginning of command
+                adb_command = adb_command.replace('adb ', f'"{adb_path}" ', 1)
+                adb_command = adb_command if adb_command != 'adb' else f'"{adb_path}"'
+
     result = subprocess.run(adb_command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
     if result.returncode == 0:
         return result.stdout.strip()
@@ -48,16 +58,24 @@ def list_available_emulators():
     # Check if emulator command exists
     emulator_path = shutil.which('emulator')
     if not emulator_path:
-        # Try common paths
-        common_paths = [
-            os.path.expanduser("~/Library/Android/sdk/emulator/emulator"),
-            os.path.expanduser("~/Android/Sdk/emulator/emulator"),
-            "/opt/android-sdk/emulator/emulator"
-        ]
-        for path in common_paths:
-            if os.path.exists(path):
-                emulator_path = path
-                break
+        # Check ANDROID_HOME environment variable first
+        android_home = os.environ.get('ANDROID_HOME')
+        if android_home:
+            potential_path = os.path.join(android_home, 'emulator', 'emulator')
+            if os.path.exists(potential_path):
+                emulator_path = potential_path
+
+        # If still not found, try common paths
+        if not emulator_path:
+            common_paths = [
+                os.path.expanduser("~/Library/Android/sdk/emulator/emulator"),
+                os.path.expanduser("~/Android/Sdk/emulator/emulator"),
+                "/opt/android-sdk/emulator/emulator"
+            ]
+            for path in common_paths:
+                if os.path.exists(path):
+                    emulator_path = path
+                    break
 
     if not emulator_path:
         print_with_color("ERROR: emulator command not found. Please install Android SDK.", "red")
@@ -92,15 +110,24 @@ def start_emulator(avd_name=None, wait_for_boot=True):
     # Get emulator path
     emulator_path = shutil.which('emulator')
     if not emulator_path:
-        common_paths = [
-            os.path.expanduser("~/Library/Android/sdk/emulator/emulator"),
-            os.path.expanduser("~/Android/Sdk/emulator/emulator"),
-            "/opt/android-sdk/emulator/emulator"
-        ]
-        for path in common_paths:
-            if os.path.exists(path):
-                emulator_path = path
-                break
+        # Check ANDROID_HOME environment variable first
+        android_home = os.environ.get('ANDROID_HOME')
+        if android_home:
+            potential_path = os.path.join(android_home, 'emulator', 'emulator')
+            if os.path.exists(potential_path):
+                emulator_path = potential_path
+
+        # If still not found, check common paths
+        if not emulator_path:
+            common_paths = [
+                os.path.expanduser("~/Library/Android/sdk/emulator/emulator"),
+                os.path.expanduser("~/Android/Sdk/emulator/emulator"),
+                "/opt/android-sdk/emulator/emulator"
+            ]
+            for path in common_paths:
+                if os.path.exists(path):
+                    emulator_path = path
+                    break
 
     if not emulator_path:
         print_with_color("ERROR: emulator command not found", "red")
