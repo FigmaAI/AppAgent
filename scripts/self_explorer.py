@@ -81,9 +81,29 @@ parser = argparse.ArgumentParser(formatter_class=argparse.RawDescriptionHelpForm
 parser.add_argument("--app")
 parser.add_argument("--root_dir", default="./")
 parser.add_argument("--platform", choices=["android", "web"], default="android", help="Platform to automate")
+
+# Task parameters (each Task may have different values)
+parser.add_argument("--task_desc", default=None, help="Task description (if not provided, will prompt)")
+parser.add_argument("--url", default=None, help="URL for web platform (if not provided, will prompt)")
+
+# Model override parameters (Task-specific model selection)
+parser.add_argument("--model", choices=["api", "local"], default=None,
+                    help="Model provider (overrides MODEL env var)")
+parser.add_argument("--model_name", default=None,
+                    help="Model name (overrides API_MODEL or LOCAL_MODEL env var)")
+
 args = vars(parser.parse_args())
 
 configs = load_config()
+
+# CLI parameters override environment variables and config.yaml (highest priority)
+if args["model"]:
+    configs["MODEL"] = args["model"]
+if args["model_name"]:
+    if configs["MODEL"] == "api":
+        configs["API_MODEL"] = args["model_name"]
+    else:
+        configs["LOCAL_MODEL"] = args["model_name"]
 
 if configs["MODEL"] == "api":
     # OpenAI API: Uses base64 encoding
@@ -173,10 +193,10 @@ if platform == "android":
         sys.exit()
     print_with_color(f"Screen resolution of {device}: {width}x{height}", "yellow")
 else:  # web
-    # Check for environment variable first (for automated tests)
-    url = os.environ.get("TASK_URL")
+    # Get URL from CLI argument or prompt
+    url = args["url"]
     if url:
-        print_with_color(f"Using URL from environment: {url}", "blue")
+        print_with_color(f"Using URL from CLI: {url}", "blue")
     else:
         print_with_color("Please enter the URL you want to explore:", "blue")
         url = input()
@@ -189,10 +209,10 @@ else:  # web
     height = controller.height
     print_with_color(f"Browser resolution: {width}x{height}", "yellow")
 
-# Check for environment variable first (for automated tests)
-task_desc = os.environ.get("TASK_DESCRIPTION")
+# Get task description from CLI argument or prompt
+task_desc = args["task_desc"]
 if task_desc:
-    print_with_color(f"Using task description from environment: {task_desc}", "blue")
+    print_with_color(f"Using task description from CLI: {task_desc}", "blue")
 else:
     print_with_color("Please enter the description of the task you want me to complete in a few sentences:", "blue")
     task_desc = input()
