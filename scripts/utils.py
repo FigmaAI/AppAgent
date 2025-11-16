@@ -8,24 +8,24 @@ from colorama import Fore, Style
 
 def print_with_color(text: str, color="", log_file=None, heading_level=None):
     if color == "red":
-        print(Fore.RED + text)
+        print(Fore.RED + text, flush=True)
     elif color == "green":
-        print(Fore.GREEN + text)
+        print(Fore.GREEN + text, flush=True)
     elif color == "yellow":
-        print(Fore.YELLOW + text)
+        print(Fore.YELLOW + text, flush=True)
     elif color == "blue":
-        print(Fore.BLUE + text)
+        print(Fore.BLUE + text, flush=True)
     elif color == "magenta":
-        print(Fore.MAGENTA + text)
+        print(Fore.MAGENTA + text, flush=True)
     elif color == "cyan":
-        print(Fore.CYAN + text)
+        print(Fore.CYAN + text, flush=True)
     elif color == "white":
-        print(Fore.WHITE + text)
+        print(Fore.WHITE + text, flush=True)
     elif color == "black":
-        print(Fore.BLACK + text)
+        print(Fore.BLACK + text, flush=True)
     else:
-        print(text)
-    print(Style.RESET_ALL)
+        print(text, flush=True)
+    print(Style.RESET_ALL, flush=True)
 
     # If a log file is specified, append the message to the file
     if log_file is not None:

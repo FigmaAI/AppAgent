@@ -615,8 +615,11 @@ while round_count < configs["MAX_ROUNDS"]:
 
 if task_complete:
     print_with_color(f"Autonomous exploration completed successfully. {doc_count} docs generated.", "yellow")
+    sys.exit(0)  # Exit with success code
 elif round_count == configs["MAX_ROUNDS"]:
     print_with_color(f"Autonomous exploration finished due to reaching max rounds. {doc_count} docs generated.",
                      "yellow")
+    sys.exit(0)  # Exit with success code (max rounds is still a valid completion)
 else:
     print_with_color(f"Autonomous exploration finished unexpectedly. {doc_count} docs generated.", "red")
+    sys.exit(1)  # Exit with error code

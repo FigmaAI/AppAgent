@@ -337,7 +337,10 @@ while round_count < configs["MAX_ROUNDS"]:
 
 if task_complete:
     print_with_color("Task completed successfully", "yellow")
+    sys.exit(0)  # Exit with success code
 elif round_count == configs["MAX_ROUNDS"]:
     print_with_color("Task finished due to reaching max rounds", "yellow")
+    sys.exit(0)  # Exit with success code (max rounds is still a valid completion)
 else:
     print_with_color("Task finished unexpectedly", "red")
+    sys.exit(1)  # Exit with error code

@@ -84,40 +84,8 @@ class AndroidElement:
         self.attrib = attrib
 
 
-def get_adb_path():
-    """Get adb executable path using find_sdk_tool helper"""
-    return find_sdk_tool('adb', 'platform-tools')
-
-
 def execute_adb(adb_command):
-    """
-    Execute adb command using full path to adb executable
-
-    Args:
-        adb_command: Command string (e.g., "adb devices" or just "devices")
-
-    Returns:
-        Command output or "ERROR"
-    """
-    # Get adb path
-    adb_path = get_adb_path()
-    if not adb_path:
-        print_with_color("ERROR: adb command not found", "red")
-        print_with_color("Please configure Android SDK path in Settings", "yellow")
-        sdk_path = get_android_sdk_path()
-        if sdk_path:
-            print_with_color(f"Current ANDROID_SDK_PATH: {sdk_path}", "yellow")
-        else:
-            print_with_color("ANDROID_SDK_PATH not set - configure in Settings", "yellow")
-        return "ERROR"
-
-    # Replace 'adb' with full path in command
-    # Handle both "adb devices" and "devices" formats
-    if adb_command.startswith('adb '):
-        adb_command = adb_command.replace('adb ', f'{adb_path} ', 1)
-    else:
-        adb_command = f'{adb_path} {adb_command}'
-
+    # print(adb_command)
     result = subprocess.run(adb_command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
     if result.returncode == 0:
         return result.stdout.strip()
@@ -127,14 +95,9 @@ def execute_adb(adb_command):
 
 
 def list_all_devices():
-    """List all connected Android devices"""
-    adb_path = get_adb_path()
-    if not adb_path:
-        print_with_color("ERROR: adb not found. Please configure Android SDK path in Settings", "red")
-        return []
-
+    adb_command = "adb devices"
     device_list = []
-    result = execute_adb("devices")
+    result = execute_adb(adb_command)
     if result != "ERROR":
         devices = result.split("\n")[1:]
         for d in devices:
@@ -262,6 +225,80 @@ def wait_for_device(timeout=120):
 
     print_with_color("ERROR: Device did not boot in time", "red")
     return False
+
+
+def stop_emulator(device_serial=None):
+    """
+    Stop a running Android emulator
+
+    Args:
+        device_serial: Serial number of the emulator to stop (e.g., 'emulator-5554')
+                      If None, stops the first detected emulator
+
+    Returns:
+        True if successful, False otherwise
+    """
+    import time
+
+    # Find emulator using helper function
+    emulator_path = find_sdk_tool('emulator', 'emulator')
+    
+    if not emulator_path:
+        print_with_color("WARNING: emulator command not found, using adb emu kill", "yellow")
+        # Fallback to adb emu kill method
+        
+    # Get device serial if not specified
+    if device_serial is None:
+        devices = list_all_devices()
+        if not devices:
+            print_with_color("No devices found to stop", "yellow")
+            return True
+        # Find first emulator (starts with 'emulator-')
+        emulators = [d for d in devices if d.startswith('emulator-')]
+        if not emulators:
+            print_with_color("No emulators found (only physical devices connected)", "yellow")
+            return True
+        device_serial = emulators[0]
+    
+    print_with_color(f"Stopping emulator: {device_serial}...", "yellow")
+    
+    # Try graceful shutdown using adb emu kill
+    adb_command = f"adb -s {device_serial} emu kill"
+    result = execute_adb(adb_command)
+    
+    if result != "ERROR":
+        print_with_color(f"✓ Emulator {device_serial} stopped successfully", "green")
+        # Wait a moment for emulator to fully shut down
+        time.sleep(2)
+        return True
+    else:
+        print_with_color(f"Failed to stop emulator {device_serial}", "red")
+        return False
+
+
+def cleanup_emulators():
+    """
+    Stop all running emulators
+    
+    Returns:
+        Number of emulators stopped
+    """
+    devices = list_all_devices()
+    emulators = [d for d in devices if d.startswith('emulator-')]
+    
+    if not emulators:
+        print_with_color("No running emulators to clean up", "yellow")
+        return 0
+    
+    print_with_color(f"Cleaning up {len(emulators)} running emulator(s)...", "yellow")
+    stopped_count = 0
+    
+    for emulator in emulators:
+        if stop_emulator(emulator):
+            stopped_count += 1
+    
+    print_with_color(f"✓ Stopped {stopped_count}/{len(emulators)} emulator(s)", "green")
+    return stopped_count
 
 
 def get_id_from_element(elem):
