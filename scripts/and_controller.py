@@ -84,8 +84,40 @@ class AndroidElement:
         self.attrib = attrib
 
 
+def get_adb_path():
+    """Get adb executable path using find_sdk_tool helper"""
+    return find_sdk_tool('adb', 'platform-tools')
+
+
 def execute_adb(adb_command):
-    # print(adb_command)
+    """
+    Execute adb command using full path to adb executable
+
+    Args:
+        adb_command: Command string (e.g., "adb devices" or just "devices")
+
+    Returns:
+        Command output or "ERROR"
+    """
+    # Get adb path
+    adb_path = get_adb_path()
+    if not adb_path:
+        print_with_color("ERROR: adb command not found", "red")
+        print_with_color("Please configure Android SDK path in Settings", "yellow")
+        sdk_path = get_android_sdk_path()
+        if sdk_path:
+            print_with_color(f"Current ANDROID_SDK_PATH: {sdk_path}", "yellow")
+        else:
+            print_with_color("ANDROID_SDK_PATH not set - configure in Settings", "yellow")
+        return "ERROR"
+
+    # Replace 'adb' with full path in command
+    # Handle both "adb devices" and "devices" formats
+    if adb_command.startswith('adb '):
+        adb_command = adb_command.replace('adb ', f'{adb_path} ', 1)
+    else:
+        adb_command = f'{adb_path} {adb_command}'
+
     result = subprocess.run(adb_command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
     if result.returncode == 0:
         return result.stdout.strip()
@@ -95,9 +127,14 @@ def execute_adb(adb_command):
 
 
 def list_all_devices():
-    adb_command = "adb devices"
+    """List all connected Android devices"""
+    adb_path = get_adb_path()
+    if not adb_path:
+        print_with_color("ERROR: adb not found. Please configure Android SDK path in Settings", "red")
+        return []
+
     device_list = []
-    result = execute_adb(adb_command)
+    result = execute_adb("devices")
     if result != "ERROR":
         devices = result.split("\n")[1:]
         for d in devices:
