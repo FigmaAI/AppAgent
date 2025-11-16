@@ -19,6 +19,7 @@ REQUEST_INTERVAL: 10  # Time in seconds between consecutive requests
 # Android Configuration
 ANDROID_SCREENSHOT_DIR: "/sdcard/Pictures"  # Changed from /sdcard to /sdcard/Pictures for Android API 36+ compatibility
 ANDROID_XML_DIR: "/sdcard/Documents"  # Changed from /sdcard to /sdcard/Documents for Android API 36+ compatibility
+ANDROID_SDK_PATH: ""  # Android SDK path (auto-detected or configured in Electron app Settings)
 
 # Web Configuration (for Playwright-based web automation)
 WEB_BROWSER_TYPE: "chromium"  # Browser type: "chromium", "firefox", or "webkit"
