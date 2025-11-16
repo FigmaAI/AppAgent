@@ -1,9 +1,11 @@
 import argparse
 import ast
+import atexit
 import datetime
 import json
 import os
 import re
+import signal
 import shutil
 import sys
 import time
@@ -11,10 +13,32 @@ import time
 import cv2
 import prompts
 from config import load_config
-from and_controller import list_all_devices, AndroidController, traverse_tree, start_emulator, list_available_emulators
+from and_controller import list_all_devices, AndroidController, traverse_tree, start_emulator, list_available_emulators, stop_emulator
 from web_controller import WebController
 from model import parse_explore_rsp, parse_reflect_rsp, parse_grid_rsp, OpenAIModel, OllamaModel
 from utils import print_with_color, draw_bbox_multi, append_to_log, append_images_as_table, draw_grid
+
+# Global flag to track if we started an emulator
+_emulator_started_by_script = False
+_device_serial = None
+
+def cleanup_on_exit():
+    """Cleanup function called when script exits"""
+    global _emulator_started_by_script, _device_serial
+    if _emulator_started_by_script and _device_serial:
+        print_with_color("\n[Cleanup] Stopping emulator started by this script...", "yellow")
+        stop_emulator(_device_serial)
+
+def signal_handler(signum, _frame):
+    """Handle termination signals"""
+    print_with_color(f"\n[Signal] Received signal {signum}, cleaning up...", "yellow")
+    cleanup_on_exit()
+    sys.exit(0)
+
+# Register cleanup handlers
+atexit.register(cleanup_on_exit)
+signal.signal(signal.SIGTERM, signal_handler)
+signal.signal(signal.SIGINT, signal_handler)
 
 def calculate_grid_coordinates(area, subarea, screen_width, screen_height, rows, cols):
     """
@@ -162,6 +186,9 @@ if platform == "android":
 
         # Try to start emulator
         if start_emulator():
+            # Mark that we started an emulator (for cleanup on exit)
+            _emulator_started_by_script = True
+
             # Refresh device list after emulator starts
             device_list = list_all_devices()
             if not device_list:
@@ -186,6 +213,9 @@ if platform == "android":
     else:
         print_with_color("Please choose the Android device to start demo by entering its ID:", "blue")
         device = input()
+
+    # Store device serial for cleanup
+    _device_serial = device
     controller = AndroidController(device)
     width, height = controller.get_device_size()
     if not width and not height:
