@@ -11,6 +11,72 @@ from utils import print_with_color
 configs = load_config()
 
 
+def get_android_sdk_path():
+    """
+    Get Android SDK path from config.
+
+    Priority:
+    1. configs['ANDROID_SDK_PATH'] (set by SetupWizard or Settings, passed via Electron env var)
+    2. Empty string (will trigger common_paths fallback in find_sdk_tool)
+
+    Returns:
+        str: Android SDK path or empty string
+    """
+    # Get from config (already loaded at module level, passed from Electron)
+    return configs.get('ANDROID_SDK_PATH', '')
+
+
+def find_sdk_tool(tool_name, subfolder='platform-tools'):
+    """
+    Find Android SDK tool (adb, emulator, etc.) using SDK path or common paths.
+
+    Args:
+        tool_name: Tool executable name (e.g., 'adb', 'emulator')
+        subfolder: SDK subfolder containing the tool (e.g., 'platform-tools', 'emulator')
+
+    Returns:
+        str: Full path to the tool or None if not found
+    """
+    # First, check if tool is in PATH
+    tool_path = shutil.which(tool_name)
+    if tool_path:
+        return tool_path
+
+    # Get SDK path from config/env
+    sdk_path = get_android_sdk_path()
+
+    # If SDK path is specified, check there first
+    if sdk_path:
+        candidate_path = os.path.join(sdk_path, subfolder, tool_name)
+        if os.path.exists(candidate_path):
+            return candidate_path
+
+    # Fallback to common paths (platform-specific)
+    common_paths = []
+    if tool_name == 'emulator':
+        common_paths = [
+            os.path.expanduser("~/Library/Android/sdk/emulator/emulator"),      # macOS
+            os.path.expanduser("~/Android/Sdk/emulator/emulator"),               # Linux
+            "C:\\Users\\%USERNAME%\\AppData\\Local\\Android\\Sdk\\emulator\\emulator.exe",  # Windows
+            "/opt/android-sdk/emulator/emulator"                                 # Linux (alternative)
+        ]
+    elif tool_name == 'adb':
+        common_paths = [
+            os.path.expanduser("~/Library/Android/sdk/platform-tools/adb"),     # macOS
+            os.path.expanduser("~/Android/Sdk/platform-tools/adb"),              # Linux
+            "C:\\Users\\%USERNAME%\\AppData\\Local\\Android\\Sdk\\platform-tools\\adb.exe",  # Windows
+            "/opt/android-sdk/platform-tools/adb"                                # Linux (alternative)
+        ]
+
+    # Check common paths
+    for path in common_paths:
+        expanded_path = os.path.expandvars(path)  # Expand %USERNAME% on Windows
+        if os.path.exists(expanded_path):
+            return expanded_path
+
+    return None
+
+
 class AndroidElement:
     def __init__(self, uid, bbox, attrib):
         self.uid = uid
@@ -43,24 +109,13 @@ def list_all_devices():
 
 def list_available_emulators():
     """List all available Android emulators (AVDs)"""
-    import shutil
 
-    # Check if emulator command exists
-    emulator_path = shutil.which('emulator')
-    if not emulator_path:
-        # Try common paths
-        common_paths = [
-            os.path.expanduser("~/Library/Android/sdk/emulator/emulator"),
-            os.path.expanduser("~/Android/Sdk/emulator/emulator"),
-            "/opt/android-sdk/emulator/emulator"
-        ]
-        for path in common_paths:
-            if os.path.exists(path):
-                emulator_path = path
-                break
+    # Find emulator using new helper function
+    emulator_path = find_sdk_tool('emulator', 'emulator')
 
     if not emulator_path:
         print_with_color("ERROR: emulator command not found. Please install Android SDK.", "red")
+        print_with_color("Set ANDROID_SDK_PATH in Settings or ensure emulator is in PATH", "yellow")
         return []
 
     # List AVDs
@@ -87,24 +142,18 @@ def start_emulator(avd_name=None, wait_for_boot=True):
         True if successful, False otherwise
     """
     import time
-    import shutil
 
-    # Get emulator path
-    emulator_path = shutil.which('emulator')
-    if not emulator_path:
-        common_paths = [
-            os.path.expanduser("~/Library/Android/sdk/emulator/emulator"),
-            os.path.expanduser("~/Android/Sdk/emulator/emulator"),
-            "/opt/android-sdk/emulator/emulator"
-        ]
-        for path in common_paths:
-            if os.path.exists(path):
-                emulator_path = path
-                break
+    # Get emulator path using new helper function
+    emulator_path = find_sdk_tool('emulator', 'emulator')
 
     if not emulator_path:
         print_with_color("ERROR: emulator command not found", "red")
-        print_with_color("Please install Android SDK or set ANDROID_HOME environment variable", "yellow")
+        print_with_color("Please configure Android SDK path in Settings", "yellow")
+        sdk_path = get_android_sdk_path()
+        if sdk_path:
+            print_with_color(f"Current ANDROID_SDK_PATH: {sdk_path}", "yellow")
+        else:
+            print_with_color("ANDROID_SDK_PATH not set - configure in Settings", "yellow")
         return False
 
     # Get AVD list
