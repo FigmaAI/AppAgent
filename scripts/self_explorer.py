@@ -115,6 +115,7 @@ parser.add_argument("--model", choices=["api", "local"], default=None,
                     help="Model provider (overrides MODEL env var)")
 parser.add_argument("--model_name", default=None,
                     help="Model name (overrides API_MODEL or LOCAL_MODEL env var)")
+parser.add_argument("--task_dir", default=None, help="Directory to store task results")
 
 args = vars(parser.parse_args())
 
@@ -157,19 +158,28 @@ if not app:
     app = input()
     app = app.replace(" ", "")
 
-work_dir = os.path.join(root_dir, "apps")
-if not os.path.exists(work_dir):
-    os.mkdir(work_dir)
-work_dir = os.path.join(work_dir, app)
-if not os.path.exists(work_dir):
-    os.mkdir(work_dir)
-demo_dir = os.path.join(work_dir, "demos")
-if not os.path.exists(demo_dir):
-    os.mkdir(demo_dir)
-demo_timestamp = int(time.time())
-task_name = datetime.datetime.fromtimestamp(demo_timestamp).strftime("self_explore_%Y-%m-%d_%H-%M-%S")
-task_dir = os.path.join(demo_dir, task_name)
-os.mkdir(task_dir)
+if args["task_dir"]:
+    task_dir = args["task_dir"]
+    task_name = os.path.basename(task_dir)
+    demo_dir = os.path.dirname(task_dir)
+    work_dir = os.path.dirname(demo_dir) # This is apps/{app}
+    if not os.path.exists(task_dir):
+        os.makedirs(task_dir)
+else:
+    work_dir = os.path.join(root_dir, "apps")
+    if not os.path.exists(work_dir):
+        os.mkdir(work_dir)
+    work_dir = os.path.join(work_dir, app)
+    if not os.path.exists(work_dir):
+        os.mkdir(work_dir)
+    demo_dir = os.path.join(work_dir, "demos")
+    if not os.path.exists(demo_dir):
+        os.mkdir(demo_dir)
+    demo_timestamp = int(time.time())
+    task_name = datetime.datetime.fromtimestamp(demo_timestamp).strftime("self_explore_%Y-%m-%d_%H-%M-%S")
+    task_dir = os.path.join(demo_dir, task_name)
+    os.mkdir(task_dir)
+
 docs_dir = os.path.join(work_dir, "auto_docs")
 if not os.path.exists(docs_dir):
     os.mkdir(docs_dir)
