@@ -2,7 +2,6 @@ import re
 import time
 from abc import abstractmethod
 from typing import List
-from http import HTTPStatus
 
 import requests
 import ollama
@@ -14,12 +13,11 @@ except ImportError:
     LITELLM_AVAILABLE = False
 
 try:
-    from anthropic import Anthropic
-    ANTHROPIC_AVAILABLE = True
+    import psutil
+    PSUTIL_AVAILABLE = True
 except ImportError:
-    ANTHROPIC_AVAILABLE = False
+    PSUTIL_AVAILABLE = False
 
-from config import load_config
 from utils import print_with_color, encode_image, optimize_image
 
 
@@ -28,7 +26,24 @@ class BaseModel:
         pass
 
     @abstractmethod
-    def get_model_response(self, prompt: str, images: List[str]) -> (bool, str):
+    def get_model_response(self, prompt: str, images: List[str]) -> tuple[bool, str, dict]:
+        """
+        Get model response with metadata.
+
+        Returns:
+            tuple: (success, response_text, metadata)
+            - success: bool indicating if request was successful
+            - response_text: str containing model's response
+            - metadata: dict with performance metrics:
+                {
+                    "prompt_tokens": int,
+                    "completion_tokens": int,
+                    "total_tokens": int,
+                    "response_time": float (seconds),
+                    "provider": str,
+                    "model": str
+                }
+        """
         pass
 
 
@@ -95,7 +110,7 @@ class OpenAIModel(BaseModel):
         else:
             return "OpenAI-compatible"
 
-    def get_model_response(self, prompt: str, images: List[str]) -> (bool, str):
+    def get_model_response(self, prompt: str, images: List[str]) -> tuple[bool, str, dict]:
         """
         Get model response using LiteLLM (supports 100+ providers) or fallback to requests.
 
@@ -104,14 +119,14 @@ class OpenAIModel(BaseModel):
             images: List of file paths
 
         Returns:
-            (success, response_text)
+            (success, response_text, metadata)
         """
         if self.use_litellm:
             return self._get_response_litellm(prompt, images)
         else:
             return self._get_response_legacy(prompt, images)
 
-    def _get_response_litellm(self, prompt: str, images: List[str]) -> (bool, str):
+    def _get_response_litellm(self, prompt: str, images: List[str]) -> tuple[bool, str, dict]:
         """Get response using LiteLLM (supports all modern providers)."""
         start_time = time.time()
 
@@ -163,9 +178,21 @@ class OpenAIModel(BaseModel):
 
             if not response_content or len(response_content.strip()) == 0:
                 print_with_color("WARNING: Model returned empty content", "yellow")
-                return False, "Model returned empty response"
+                metadata = {
+                    "prompt_tokens": 0,
+                    "completion_tokens": 0,
+                    "total_tokens": 0,
+                    "response_time": response_time,
+                    "provider": self.provider,
+                    "model": self.model
+                }
+                return False, "Model returned empty response", metadata
 
-            # Print usage info if available
+            # Collect usage metadata
+            prompt_tokens = 0
+            completion_tokens = 0
+            total_tokens = 0
+
             if hasattr(response, 'usage') and response.usage:
                 usage = response.usage
                 prompt_tokens = getattr(usage, 'prompt_tokens', 0)
@@ -179,7 +206,17 @@ class OpenAIModel(BaseModel):
             # Print response time
             print_with_color(f"✓ {self.provider} response received in {response_time:.2f}s", "green")
 
-            return True, response_content
+            # Build metadata dict
+            metadata = {
+                "prompt_tokens": prompt_tokens,
+                "completion_tokens": completion_tokens,
+                "total_tokens": total_tokens,
+                "response_time": response_time,
+                "provider": self.provider,
+                "model": self.model
+            }
+
+            return True, response_content, metadata
 
         except Exception as e:
             response_time = time.time() - start_time
@@ -195,9 +232,18 @@ class OpenAIModel(BaseModel):
             else:
                 print_with_color(f"ERROR: {self.provider} request failed after {response_time:.2f}s: {error_msg}", "red")
 
-            return False, f"{self.provider} request failed: {error_msg}"
+            metadata = {
+                "prompt_tokens": 0,
+                "completion_tokens": 0,
+                "total_tokens": 0,
+                "response_time": response_time,
+                "provider": self.provider,
+                "model": self.model,
+                "error": error_msg
+            }
+            return False, f"{self.provider} request failed: {error_msg}", metadata
 
-    def _get_response_legacy(self, prompt: str, images: List[str]) -> (bool, str):
+    def _get_response_legacy(self, prompt: str, images: List[str]) -> tuple[bool, str, dict]:
         """Legacy implementation using requests (basic OpenAI compatibility only)."""
         start_time = time.time()
 
@@ -243,24 +289,32 @@ class OpenAIModel(BaseModel):
         try:
             response = requests.post(self.base_url, headers=headers, json=payload, timeout=120).json()
         except requests.exceptions.Timeout:
-            return False, "Request timeout after 120 seconds"
+            response_time = time.time() - start_time
+            metadata = {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0, "response_time": response_time, "provider": "OpenAI-compatible", "model": self.model}
+            return False, "Request timeout after 120 seconds", metadata
         except requests.exceptions.RequestException as e:
-            return False, f"Request failed: {str(e)}"
+            response_time = time.time() - start_time
+            metadata = {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0, "response_time": response_time, "provider": "OpenAI-compatible", "model": self.model}
+            return False, f"Request failed: {str(e)}", metadata
         except Exception as e:
-            return False, f"Failed to parse response: {str(e)}"
+            response_time = time.time() - start_time
+            metadata = {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0, "response_time": response_time, "provider": "OpenAI-compatible", "model": self.model}
+            return False, f"Failed to parse response: {str(e)}", metadata
 
         # Calculate response time
         response_time = time.time() - start_time
 
         # Check for errors in response
         if "error" in response:
-            return False, response["error"]["message"]
+            metadata = {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0, "response_time": response_time, "provider": "OpenAI-compatible", "model": self.model}
+            return False, response["error"]["message"], metadata
 
         # Check if response has expected structure
         if "choices" not in response or not response["choices"]:
             print_with_color("ERROR: No 'choices' in model response", "red")
             print_with_color(f"Response: {response}", "red")
-            return False, "Invalid response format: missing 'choices'"
+            metadata = {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0, "response_time": response_time, "provider": "OpenAI-compatible", "model": self.model}
+            return False, "Invalid response format: missing 'choices'", metadata
 
         # Extract content
         message = response["choices"][0]["message"]
@@ -268,19 +322,34 @@ class OpenAIModel(BaseModel):
 
         if not content or len(content.strip()) == 0:
             print_with_color("WARNING: Model returned empty content", "yellow")
-            return False, "Model returned empty response"
+            metadata = {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0, "response_time": response_time, "provider": "OpenAI-compatible", "model": self.model}
+            return False, "Model returned empty response", metadata
 
-        # Print usage info if available
+        # Collect usage metadata
+        prompt_tokens = 0
+        completion_tokens = 0
+        total_tokens = 0
+
         if "usage" in response:
             usage = response["usage"]
             prompt_tokens = usage.get("prompt_tokens", 0)
             completion_tokens = usage.get("completion_tokens", 0)
+            total_tokens = usage.get("total_tokens", prompt_tokens + completion_tokens)
             print_with_color(f"Tokens - Prompt: {prompt_tokens}, Completion: {completion_tokens}", "yellow")
 
         # Print response time
         print_with_color(f"Response time: {response_time:.2f}s", "yellow")
 
-        return True, content
+        metadata = {
+            "prompt_tokens": prompt_tokens,
+            "completion_tokens": completion_tokens,
+            "total_tokens": total_tokens,
+            "response_time": response_time,
+            "provider": "OpenAI-compatible",
+            "model": self.model
+        }
+
+        return True, content, metadata
 
 
 class OllamaModel(BaseModel):
@@ -295,7 +364,7 @@ class OllamaModel(BaseModel):
         self.max_tokens = max_tokens
         print_with_color(f"✓ Ollama Model initialized: {model}", "green")
 
-    def get_model_response(self, prompt: str, images: List[str]) -> (bool, str):
+    def get_model_response(self, prompt: str, images: List[str]) -> tuple[bool, str, dict]:
         """
         Get model response using Ollama SDK with file paths.
 
@@ -304,9 +373,16 @@ class OllamaModel(BaseModel):
             images: List of file paths (NOT base64!)
 
         Returns:
-            (success, response_text)
+            (success, response_text, metadata)
         """
         start_time = time.time()
+
+        # Measure initial resource usage if psutil is available
+        cpu_before = 0
+        mem_before = 0
+        if PSUTIL_AVAILABLE:
+            cpu_before = psutil.cpu_percent(interval=0.1)
+            mem_before = psutil.virtual_memory().percent
 
         # Optimize images before sending to model
         optimized_images = []
@@ -367,27 +443,64 @@ class OllamaModel(BaseModel):
 
             # If content is empty, try to use thinking field (qwen3-vl:4b sometimes uses this)
             if not content or len(content.strip()) == 0:
+                cpu_after = psutil.cpu_percent(interval=0.1) if PSUTIL_AVAILABLE else 0
+                mem_after = psutil.virtual_memory().percent if PSUTIL_AVAILABLE else 0
+                cpu_avg = (cpu_before + cpu_after) / 2 if PSUTIL_AVAILABLE else 0
+                mem_avg = (mem_before + mem_after) / 2 if PSUTIL_AVAILABLE else 0
+                metadata = {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0, "response_time": response_time, "provider": "Ollama", "model": self.model, "cpu_usage": cpu_avg, "memory_usage": mem_avg}
                 if hasattr(response.message, 'thinking') and response.message.thinking:
                     print_with_color("WARNING: Content empty, using thinking field", "yellow")
                     # Thinking field might be too verbose, skip it
                     print_with_color(f"[DEBUG] Thinking length: {len(response.message.thinking)} chars", "yellow")
-                    return False, "Model returned empty content (only thinking field available)"
+                    return False, "Model returned empty content (only thinking field available)", metadata
                 else:
                     print_with_color("WARNING: Model returned empty content", "yellow")
                     print_with_color(f"[DEBUG] Full message: {response.message}", "red")
-                    return False, "Model returned empty response"
+                    return False, "Model returned empty response", metadata
+
+            # Measure final resource usage
+            cpu_after = 0
+            mem_after = 0
+            cpu_avg = 0
+            mem_avg = 0
+
+            if PSUTIL_AVAILABLE:
+                cpu_after = psutil.cpu_percent(interval=0.1)
+                mem_after = psutil.virtual_memory().percent
+                cpu_avg = (cpu_before + cpu_after) / 2
+                mem_avg = (mem_before + mem_after) / 2
 
             # Print summary
             print_with_color(f"Response time: {response_time:.2f}s", "yellow")
             print_with_color(f"Response length: {len(content)} chars", "yellow")
             print_with_color(f"Images sent: {len(images)} file paths (no base64 encoding)", "cyan")
 
-            return True, content
+            if PSUTIL_AVAILABLE:
+                print_with_color(f"Resource usage - CPU: {cpu_avg:.1f}%, Memory: {mem_avg:.1f}%", "yellow")
+
+            # Ollama metadata includes resource usage instead of token counts
+            metadata = {
+                "prompt_tokens": 0,  # Not applicable for Ollama
+                "completion_tokens": 0,  # Not applicable for Ollama
+                "total_tokens": 0,  # Not applicable for Ollama
+                "response_time": response_time,
+                "provider": "Ollama",
+                "model": self.model,
+                "cpu_usage": cpu_avg if PSUTIL_AVAILABLE else 0,
+                "memory_usage": mem_avg if PSUTIL_AVAILABLE else 0
+            }
+
+            return True, content, metadata
 
         except Exception as e:
             response_time = time.time() - start_time
+            cpu_after = psutil.cpu_percent(interval=0.1) if PSUTIL_AVAILABLE else 0
+            mem_after = psutil.virtual_memory().percent if PSUTIL_AVAILABLE else 0
+            cpu_avg = (cpu_before + cpu_after) / 2 if PSUTIL_AVAILABLE else 0
+            mem_avg = (mem_before + mem_after) / 2 if PSUTIL_AVAILABLE else 0
             print_with_color(f"ERROR: Ollama request failed after {response_time:.2f}s: {e}", "red")
-            return False, f"Ollama request failed: {str(e)}"
+            metadata = {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0, "response_time": response_time, "provider": "Ollama", "model": self.model, "cpu_usage": cpu_avg, "memory_usage": mem_avg}
+            return False, f"Ollama request failed: {str(e)}", metadata
 
 def parse_explore_rsp(rsp):
     try:

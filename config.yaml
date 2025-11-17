@@ -1,46 +1,58 @@
-MODEL: "local"  # Choose: "api" (for all cloud APIs) or "local" (for Ollama)
+MODEL: "api"  # Choose: "api" (for all cloud APIs) or "local" (for Ollama)
 
 # =============================================================================
 # API Model Configuration (Supports 100+ Providers via LiteLLM)
 # =============================================================================
 # Set MODEL to "api" to use cloud-based models
-# Automatically supports: OpenAI, Anthropic Claude, xAI Grok, Google Gemini,
-# OpenRouter, Mistral, DeepSeek, and 90+ more providers
+# LiteLLM automatically detects the provider from the model name and handles
+# the appropriate API format for: OpenAI, Anthropic Claude, xAI Grok,
+# Google Gemini, OpenRouter, Mistral, DeepSeek, and 90+ more providers
+#
+# Configuration:
+# - API_KEY: Required for all providers
+# - API_MODEL: Model name that determines the provider (see examples below)
+# - API_BASE_URL: Optional - only needed for custom endpoints (e.g., OpenRouter)
+#               LiteLLM uses default URLs for most providers automatically
 
-API_BASE_URL: "https://api.openai.com/v1/chat/completions"  # Base URL (optional for most providers)
-API_KEY: "sk-"  # Your API key
-API_MODEL: "gpt-4o-mini"  # Model name (see examples below)
+API_BASE_URL: ""  # Leave empty for default provider URLs, or specify custom endpoint
+API_KEY: ""  # Your API key
+API_MODEL: ""  # Model name (provider auto-detected from name)
 
 # =============================================================================
 # SUPPORTED MODEL EXAMPLES (copy the model name you want to use)
 # =============================================================================
 
 # --- OpenAI (https://platform.openai.com/api-keys) ---
+# API_BASE_URL: ""  # Leave empty (uses default: https://api.openai.com/v1)
 # API_KEY: "sk-..."
-# API_MODEL: "gpt-4o"               # GPT-4 Omni
-# API_MODEL: "gpt-4o-mini"          # GPT-4 Omni Mini (cheaper)
+# API_MODEL: "gpt-4o"               # GPT-4 Omni (best for vision)
+# API_MODEL: "gpt-4o-mini"          # GPT-4 Omni Mini (cheaper, recommended)
 # API_MODEL: "gpt-4-turbo"          # GPT-4 Turbo
 
 # --- Anthropic Claude (https://console.anthropic.com/) ---
+# API_BASE_URL: ""  # Leave empty (uses default: https://api.anthropic.com/v1)
 # API_KEY: "sk-ant-..."
-# API_MODEL: "claude-sonnet-4-5-20250929"   # Latest Sonnet 4.5
-# API_MODEL: "claude-opus-4-20250514"       # Claude Opus 4
+# API_MODEL: "claude-sonnet-4-5-20250929"   # Latest Sonnet 4.5 (best quality)
+# API_MODEL: "claude-opus-4-20250514"       # Claude Opus 4 (most capable)
 # API_MODEL: "claude-3-5-sonnet-20241022"   # Claude 3.5 Sonnet
 # API_MODEL: "claude-3-5-haiku-20241022"    # Claude Haiku (faster/cheaper)
 
 # --- xAI Grok (https://console.x.ai/) ---
+# API_BASE_URL: ""  # Leave empty (uses default: https://api.x.ai/v1)
 # API_KEY: "xai-..."
 # API_MODEL: "grok-beta"            # Grok Beta
 # API_MODEL: "grok-vision-beta"     # Grok Vision
 
 # --- Google Gemini (https://aistudio.google.com/app/apikey) ---
+# API_BASE_URL: ""  # Leave empty (LiteLLM handles Gemini API)
 # API_KEY: "..."
-# API_MODEL: "gemini/gemini-2.0-flash-exp"  # Gemini 2.0 Flash
-# API_MODEL: "gemini/gemini-pro-vision"     # Gemini Pro Vision
+# API_MODEL: "gemini/gemini-2.0-flash-exp"     # Gemini 2.0 Flash (fast, recommended)
+# API_MODEL: "gemini/gemini-1.5-pro-latest"    # Gemini 1.5 Pro
+# API_MODEL: "gemini/gemini-pro-vision"        # Gemini Pro Vision
 
 # --- OpenRouter (https://openrouter.ai/keys) - Access 100+ models ---
+# API_BASE_URL: "https://openrouter.ai/api/v1"  # Required for OpenRouter
 # API_KEY: "sk-or-v1-..."
-# API_BASE_URL: "https://openrouter.ai/api/v1"
 # API_MODEL: "openrouter/anthropic/claude-sonnet-4"     # Claude via OpenRouter
 # API_MODEL: "openrouter/google/gemini-2.0-flash-exp"   # Gemini via OpenRouter
 # API_MODEL: "openrouter/x-ai/grok-2-vision-1212"       # Grok via OpenRouter
@@ -48,20 +60,32 @@ API_MODEL: "gpt-4o-mini"  # Model name (see examples below)
 # API_MODEL: "openrouter/deepseek/deepseek-chat"        # DeepSeek via OpenRouter
 
 # --- Mistral AI (https://console.mistral.ai/) ---
+# API_BASE_URL: ""  # Leave empty (uses default: https://api.mistral.ai/v1)
 # API_KEY: "..."
 # API_MODEL: "mistral/mistral-large-latest"  # Mistral Large
-# API_MODEL: "mistral/pixtral-12b-2409"      # Pixtral (vision)
+# API_MODEL: "mistral/pixtral-12b-2409"      # Pixtral (vision support)
 
 # --- DeepSeek (https://platform.deepseek.com/) ---
+# API_BASE_URL: ""  # Leave empty (uses default: https://api.deepseek.com/v1)
 # API_KEY: "..."
 # API_MODEL: "deepseek/deepseek-chat"        # DeepSeek Chat
-# API_MODEL: "deepseek/deepseek-reasoner"    # DeepSeek Reasoner
+# API_MODEL: "deepseek/deepseek-reasoner"    # DeepSeek Reasoner (R1)
 
+# =============================================================================
 # Local Model Configuration (Ollama)
+# =============================================================================
+# Set MODEL to "local" to use Ollama (privacy-focused, runs on your machine)
+# Install Ollama: https://ollama.com/download
+# Pull models: ollama pull qwen3-vl:4b
+#
+# Recommended models with vision support:
+# - qwen3-vl:4b (4.4B params, 16GB RAM, fast)
+# - llava:13b (13B params, 32GB RAM, better quality)
+# - llava:34b (34B params, 64GB RAM, best quality)
+
 LOCAL_BASE_URL: "http://localhost:11434/v1/chat/completions"
-LOCAL_MODEL: "qwen3-vl:4b"  # Ollama model with vision support (optimized for 16GB RAM)
-# Model specs: 4.4B params, 262K context length
-# Note: This model uses thinking mode - needs 4096+ tokens for complete responses
+LOCAL_MODEL: "qwen3-vl:4b"  # Ollama model name (optimized for 16GB RAM)
+# Note: qwen3-vl uses thinking mode - needs 4096+ tokens for complete responses
 
 # Common Settings
 MAX_TOKENS: 4096  # Increased for qwen3-vl:4b thinking mode (model needs space for internal reasoning + final answer)
@@ -71,7 +95,7 @@ REQUEST_INTERVAL: 10  # Time in seconds between consecutive requests
 # Android Configuration
 ANDROID_SCREENSHOT_DIR: "/sdcard/Pictures"  # Changed from /sdcard to /sdcard/Pictures for Android API 36+ compatibility
 ANDROID_XML_DIR: "/sdcard/Documents"  # Changed from /sdcard to /sdcard/Documents for Android API 36+ compatibility
-ANDROID_SDK_PATH: ""  # Android SDK path (auto-detected or configured in Electron app Settings)
+ANDROID_SDK_PATH: "/Volumes/Backup/Android/sdk"  # Android SDK path (auto-detected or configured in Electron app Settings)
 
 # Web Configuration (for Playwright-based web automation)
 WEB_BROWSER_TYPE: "chromium"  # Browser type: "chromium", "firefox", or "webkit"

@@ -327,7 +327,17 @@ while round_count < configs["MAX_ROUNDS"]:
     prompt = re.sub(r"<last_act>", last_act, prompt)
     base64_img_before = os.path.join(task_dir, f"{round_count}_before_labeled.png")
     print_with_color("Thinking about what to do in the next step...", "yellow")
-    status, rsp = mllm.get_model_response(prompt, [base64_img_before])
+    status, rsp, metadata = mllm.get_model_response(prompt, [base64_img_before])
+
+    # Log performance metrics to report
+    if status and metadata:
+        perf_info = f"\n**Performance:** {metadata['response_time']:.2f}s"
+        if metadata.get('total_tokens', 0) > 0:
+            perf_info += f" | Tokens: {metadata['prompt_tokens']} + {metadata['completion_tokens']} = {metadata['total_tokens']}"
+        if metadata.get('cpu_usage', 0) > 0:
+            perf_info += f" | CPU: {metadata['cpu_usage']:.1f}% | Memory: {metadata['memory_usage']:.1f}%"
+        perf_info += f" | Provider: {metadata['provider']} ({metadata['model']})\n"
+        append_to_log(perf_info, report_log_path)
 
     if status:
         with open(explore_log_path, "a") as logfile:
@@ -435,7 +445,18 @@ while round_count < configs["MAX_ROUNDS"]:
             prompt = re.sub(r"<task_description>", task_desc, prompts.task_template_grid)
             prompt = re.sub(r"<last_act>", last_act, prompt)
 
-            status, grid_rsp = mllm.get_model_response(prompt, [grid_screenshot])
+            status, grid_rsp, grid_metadata = mllm.get_model_response(prompt, [grid_screenshot])
+
+            # Log grid performance metrics
+            if status and grid_metadata:
+                perf_info = f"\n**Grid Performance:** {grid_metadata['response_time']:.2f}s"
+                if grid_metadata.get('total_tokens', 0) > 0:
+                    perf_info += f" | Tokens: {grid_metadata['prompt_tokens']} + {grid_metadata['completion_tokens']} = {grid_metadata['total_tokens']}"
+                if grid_metadata.get('cpu_usage', 0) > 0:
+                    perf_info += f" | CPU: {grid_metadata['cpu_usage']:.1f}% | Memory: {grid_metadata['memory_usage']:.1f}%"
+                perf_info += f" | Provider: {grid_metadata['provider']} ({grid_metadata['model']})\n"
+                append_to_log(perf_info, report_log_path)
+
             if not status:
                 print_with_color(f"ERROR: {grid_rsp}", "red")
                 break
@@ -592,7 +613,17 @@ while round_count < configs["MAX_ROUNDS"]:
     prompt = re.sub(r"<last_act>", last_act, prompt)
 
     print_with_color("Reflecting on my previous action...", "yellow")
-    status, rsp = mllm.get_model_response(prompt, [base64_img_before, base64_img_after])
+    status, rsp, reflect_metadata = mllm.get_model_response(prompt, [base64_img_before, base64_img_after])
+
+    # Log reflection performance metrics
+    if status and reflect_metadata:
+        perf_info = f"\n**Reflection Performance:** {reflect_metadata['response_time']:.2f}s"
+        if reflect_metadata.get('total_tokens', 0) > 0:
+            perf_info += f" | Tokens: {reflect_metadata['prompt_tokens']} + {reflect_metadata['completion_tokens']} = {reflect_metadata['total_tokens']}"
+        if reflect_metadata.get('cpu_usage', 0) > 0:
+            perf_info += f" | CPU: {reflect_metadata['cpu_usage']:.1f}% | Memory: {reflect_metadata['memory_usage']:.1f}%"
+        perf_info += f" | Provider: {reflect_metadata['provider']} ({reflect_metadata['model']})\n"
+        append_to_log(perf_info, report_log_path)
     if status:
         resource_id = elem_list[int(area) - 1].uid
         with open(reflect_log_path, "a") as logfile:
