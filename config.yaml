@@ -1,17 +1,75 @@
-MODEL: "local"  # Choose: "api" (OpenAI-compatible), "local" (Ollama), "unified" (LiteLLM), or "anthropic" (Claude)
+MODEL: "local"  # Choose: "api" (OpenAI-compatible), "local" (Ollama), "unified" (LiteLLM for modern APIs), or "anthropic" (Claude SDK)
 
-# API Model Configuration (OpenAI, OpenRouter, or any OpenAI-compatible API)
+# =============================================================================
+# Modern Model API Configuration (RECOMMENDED)
+# =============================================================================
+# Use "unified" mode with LiteLLM for all modern APIs including:
+# - OpenRouter (access 100+ models through one API)
+# - Anthropic Claude (Sonnet 4.5, Opus, Haiku)
+# - xAI Grok (Grok-1, Grok-2)
+# - OpenAI (GPT-4o, GPT-4 Turbo)
+# - Google Gemini (Gemini Pro, Flash)
+# - And many more...
+
+UNIFIED_API_KEY: ""  # Your API key for the chosen provider
+UNIFIED_MODEL: "claude-sonnet-4-5-20250929"  # Model name (see examples below)
+UNIFIED_BASE_URL: ""  # Optional: Custom base URL (e.g., for OpenRouter: "https://openrouter.ai/api/v1")
+
+# =============================================================================
+# UNIFIED MODEL EXAMPLES (copy the model name you want to use)
+# =============================================================================
+
+# --- OpenRouter (Recommended for accessing multiple models) ---
+# UNIFIED_API_KEY: "sk-or-v1-..."  # Get from https://openrouter.ai/keys
+# UNIFIED_BASE_URL: "https://openrouter.ai/api/v1"
+# UNIFIED_MODEL: "openrouter/anthropic/claude-sonnet-4"  # Claude Sonnet 4
+# UNIFIED_MODEL: "openrouter/google/gemini-2.0-flash-exp"  # Gemini 2.0 Flash
+# UNIFIED_MODEL: "openrouter/x-ai/grok-2-vision-1212"  # Grok 2 Vision
+# UNIFIED_MODEL: "openrouter/openai/gpt-4o"  # GPT-4o
+# UNIFIED_MODEL: "openrouter/deepseek/deepseek-chat"  # DeepSeek
+
+# --- Anthropic Claude (Direct API) ---
+# UNIFIED_API_KEY: "sk-ant-..."  # Get from https://console.anthropic.com/
+# UNIFIED_MODEL: "claude-sonnet-4-5-20250929"  # Latest Sonnet 4.5
+# UNIFIED_MODEL: "claude-opus-4-20250514"  # Claude Opus 4
+# UNIFIED_MODEL: "claude-3-5-sonnet-20241022"  # Claude 3.5 Sonnet
+
+# --- xAI Grok ---
+# UNIFIED_API_KEY: "xai-..."  # Get from https://console.x.ai/
+# UNIFIED_MODEL: "xai/grok-beta"  # Grok Beta
+# UNIFIED_MODEL: "xai/grok-vision-beta"  # Grok Vision
+
+# --- OpenAI ---
+# UNIFIED_API_KEY: "sk-..."  # Get from https://platform.openai.com/api-keys
+# UNIFIED_MODEL: "gpt-4o"  # GPT-4 Omni
+# UNIFIED_MODEL: "gpt-4o-mini"  # GPT-4 Omni Mini
+# UNIFIED_MODEL: "gpt-4-turbo"  # GPT-4 Turbo
+
+# --- Google Gemini ---
+# UNIFIED_API_KEY: "..."  # Get from https://aistudio.google.com/app/apikey
+# UNIFIED_MODEL: "gemini/gemini-2.0-flash-exp"  # Gemini 2.0 Flash
+# UNIFIED_MODEL: "gemini/gemini-pro-vision"  # Gemini Pro Vision
+
+# --- Mistral AI ---
+# UNIFIED_API_KEY: "..."  # Get from https://console.mistral.ai/
+# UNIFIED_MODEL: "mistral/mistral-large-latest"  # Mistral Large
+# UNIFIED_MODEL: "mistral/pixtral-12b-2409"  # Pixtral (vision)
+
+# --- DeepSeek ---
+# UNIFIED_API_KEY: "..."  # Get from https://platform.deepseek.com/
+# UNIFIED_MODEL: "deepseek/deepseek-chat"  # DeepSeek Chat
+# UNIFIED_MODEL: "deepseek/deepseek-reasoner"  # DeepSeek Reasoner
+
+# =============================================================================
+# Legacy API Configuration (OpenAI-compatible APIs)
+# =============================================================================
 API_BASE_URL: "https://api.openai.com/v1/chat/completions"
 API_KEY: "sk-"  # Your API key
 API_MODEL: "gpt-4o-mini"  # Model name
 
-# Unified Model Configuration (LiteLLM - supports 100+ providers)
-# Examples: "gpt-4o", "claude-sonnet-4-5-20250929", "gemini/gemini-2.0-flash-exp", "azure/gpt-4"
-UNIFIED_API_KEY: ""  # API key for the chosen provider
-UNIFIED_MODEL: "claude-sonnet-4-5-20250929"  # Model name with provider prefix
-
-# Anthropic Model Configuration (Official Claude SDK)
-# Latest models: "claude-sonnet-4-5-20250929", "claude-opus-4-20250514", "claude-3-5-sonnet-20241022"
+# =============================================================================
+# Anthropic Claude (Official SDK - alternative to unified mode)
+# =============================================================================
 ANTHROPIC_API_KEY: ""  # Your Anthropic API key
 ANTHROPIC_MODEL: "claude-sonnet-4-5-20250929"  # Claude model name
 

@@ -62,11 +62,13 @@ elif configs["MODEL"] == "local":
                        temperature=configs["TEMPERATURE"],
                        max_tokens=configs["MAX_TOKENS"])
 elif configs["MODEL"] == "unified":
-    # LiteLLM: Unified interface for 100+ providers
+    # LiteLLM: Unified interface for 100+ providers (OpenRouter, Claude, Grok, Gemini, etc.)
+    base_url = configs.get("UNIFIED_BASE_URL", "") or None  # Convert empty string to None
     mllm = UnifiedModel(api_key=configs["UNIFIED_API_KEY"],
                         model=configs["UNIFIED_MODEL"],
                         temperature=configs["TEMPERATURE"],
-                        max_tokens=configs["MAX_TOKENS"])
+                        max_tokens=configs["MAX_TOKENS"],
+                        base_url=base_url)
 elif configs["MODEL"] == "anthropic":
     # Anthropic: Official Claude SDK
     mllm = AnthropicModel(api_key=configs["ANTHROPIC_API_KEY"],
