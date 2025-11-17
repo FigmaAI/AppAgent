@@ -131,14 +131,14 @@ if args["model_name"]:
         configs["LOCAL_MODEL"] = args["model_name"]
 
 if configs["MODEL"] == "api":
-    # OpenAI API: Uses base64 encoding
+    # API Model: Supports 100+ providers via LiteLLM (OpenAI, Claude, Grok, Gemini, etc.)
     mllm = OpenAIModel(base_url=configs["API_BASE_URL"],
                        api_key=configs["API_KEY"],
                        model=configs["API_MODEL"],
                        temperature=configs["TEMPERATURE"],
                        max_tokens=configs["MAX_TOKENS"])
 elif configs["MODEL"] == "local":
-    # Ollama: Uses native SDK with file paths directly
+    # Ollama: Local models
     mllm = OllamaModel(model=configs["LOCAL_MODEL"],
                        temperature=configs["TEMPERATURE"],
                        max_tokens=configs["MAX_TOKENS"])
