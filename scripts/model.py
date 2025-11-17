@@ -34,7 +34,20 @@ class BaseModel:
 
 class OpenAIModel(BaseModel):
     """
-    OpenAI Model using base64 encoding for images.
+    Universal Model API using LiteLLM.
+
+    Supports 100+ model providers including:
+    - OpenAI (gpt-4o, gpt-4-turbo, gpt-4o-mini)
+    - Anthropic Claude (claude-sonnet-4-5-20250929, claude-opus-4, etc.)
+    - xAI Grok (grok-beta, grok-vision-beta)
+    - Google Gemini (gemini-2.0-flash-exp, gemini-pro-vision)
+    - OpenRouter (access 100+ models: openrouter/provider/model)
+    - Mistral (mistral-large-latest, pixtral-12b)
+    - DeepSeek (deepseek-chat, deepseek-reasoner)
+    - And 90+ more providers via LiteLLM
+
+    The implementation automatically detects the provider from the model name
+    and handles the appropriate API format.
     """
     def __init__(self, base_url: str, api_key: str, model: str, temperature: float, max_tokens: int):
         super().__init__()
@@ -43,11 +56,48 @@ class OpenAIModel(BaseModel):
         self.model = model
         self.temperature = temperature
         self.max_tokens = max_tokens
-        print_with_color(f"✓ OpenAI Model initialized: {model} (using base64 encoding)", "green")
+
+        # Detect provider from model name
+        self.provider = self._detect_provider(model)
+
+        # Use LiteLLM if available, fallback to requests for basic OpenAI compatibility
+        self.use_litellm = LITELLM_AVAILABLE
+
+        if self.use_litellm:
+            print_with_color(f"✓ Model initialized: {model} (Provider: {self.provider}, via LiteLLM)", "green")
+        else:
+            print_with_color(f"✓ Model initialized: {model} (Legacy mode - install litellm for better compatibility)", "yellow")
+
+    def _detect_provider(self, model: str) -> str:
+        """Detect the provider from the model name."""
+        if model.startswith("openrouter/"):
+            return "OpenRouter"
+        elif model.startswith("claude-") or model.startswith("anthropic/"):
+            return "Anthropic"
+        elif model.startswith("xai/") or model.startswith("grok"):
+            return "xAI Grok"
+        elif model.startswith("gpt-"):
+            return "OpenAI"
+        elif model.startswith("gemini/") or model.startswith("google/"):
+            return "Google Gemini"
+        elif model.startswith("azure/"):
+            return "Azure OpenAI"
+        elif model.startswith("command-") or model.startswith("cohere/"):
+            return "Cohere"
+        elif model.startswith("mistral/"):
+            return "Mistral"
+        elif model.startswith("together_ai/"):
+            return "Together AI"
+        elif model.startswith("perplexity/"):
+            return "Perplexity"
+        elif model.startswith("deepseek/"):
+            return "DeepSeek"
+        else:
+            return "OpenAI-compatible"
 
     def get_model_response(self, prompt: str, images: List[str]) -> (bool, str):
         """
-        Get model response using base64 encoding for images.
+        Get model response using LiteLLM (supports 100+ providers) or fallback to requests.
 
         Args:
             prompt: Text prompt
@@ -56,6 +106,99 @@ class OpenAIModel(BaseModel):
         Returns:
             (success, response_text)
         """
+        if self.use_litellm:
+            return self._get_response_litellm(prompt, images)
+        else:
+            return self._get_response_legacy(prompt, images)
+
+    def _get_response_litellm(self, prompt: str, images: List[str]) -> (bool, str):
+        """Get response using LiteLLM (supports all modern providers)."""
+        start_time = time.time()
+
+        # Optimize images before encoding
+        optimized_images = []
+        for img_path in images:
+            optimized_path = optimize_image(img_path)
+            optimized_images.append(optimized_path)
+
+        # Build content array
+        content = [{"type": "text", "text": prompt}]
+
+        # Add images
+        for img in optimized_images:
+            base64_img = encode_image(img)
+            content.append({
+                "type": "image_url",
+                "image_url": {
+                    "url": f"data:image/jpeg;base64,{base64_img}"
+                }
+            })
+            print_with_color(f"Image encoded: {img}", "cyan")
+
+        try:
+            # Prepare completion parameters
+            completion_params = {
+                "model": self.model,
+                "messages": [{"role": "user", "content": content}],
+                "api_key": self.api_key,
+                "temperature": self.temperature,
+                "max_tokens": self.max_tokens,
+                "timeout": 120
+            }
+
+            # Add base_url if provided (for custom endpoints like OpenRouter)
+            if self.base_url and self.base_url.strip():
+                completion_params["api_base"] = self.base_url
+                print_with_color(f"Using custom base URL: {self.base_url}", "cyan")
+
+            # LiteLLM automatically handles different provider formats
+            print_with_color(f"Sending request to {self.provider}...", "cyan")
+            response = completion(**completion_params)
+
+            # Calculate response time
+            response_time = time.time() - start_time
+
+            # LiteLLM normalizes all responses to OpenAI format
+            response_content = response.choices[0].message.content
+
+            if not response_content or len(response_content.strip()) == 0:
+                print_with_color("WARNING: Model returned empty content", "yellow")
+                return False, "Model returned empty response"
+
+            # Print usage info if available
+            if hasattr(response, 'usage') and response.usage:
+                usage = response.usage
+                prompt_tokens = getattr(usage, 'prompt_tokens', 0)
+                completion_tokens = getattr(usage, 'completion_tokens', 0)
+                total_tokens = getattr(usage, 'total_tokens', prompt_tokens + completion_tokens)
+                print_with_color(
+                    f"Tokens - Prompt: {prompt_tokens}, Completion: {completion_tokens}, Total: {total_tokens}",
+                    "yellow"
+                )
+
+            # Print response time
+            print_with_color(f"✓ {self.provider} response received in {response_time:.2f}s", "green")
+
+            return True, response_content
+
+        except Exception as e:
+            response_time = time.time() - start_time
+            error_msg = str(e)
+
+            # Provide helpful error messages for common issues
+            if "authentication" in error_msg.lower() or "api_key" in error_msg.lower():
+                print_with_color(f"ERROR: Authentication failed for {self.provider}. Check your API key.", "red")
+            elif "rate_limit" in error_msg.lower() or "quota" in error_msg.lower():
+                print_with_color(f"ERROR: Rate limit or quota exceeded for {self.provider}.", "red")
+            elif "not found" in error_msg.lower() or "404" in error_msg:
+                print_with_color(f"ERROR: Model '{self.model}' not found. Check the model name.", "red")
+            else:
+                print_with_color(f"ERROR: {self.provider} request failed after {response_time:.2f}s: {error_msg}", "red")
+
+            return False, f"{self.provider} request failed: {error_msg}"
+
+    def _get_response_legacy(self, prompt: str, images: List[str]) -> (bool, str):
+        """Legacy implementation using requests (basic OpenAI compatibility only)."""
         start_time = time.time()
 
         # Optimize images before encoding
@@ -81,6 +224,7 @@ class OpenAIModel(BaseModel):
                 }
             })
             print_with_color(f"Image encoded to base64: {img}", "cyan")
+
         headers = {
             "Content-Type": "application/json",
             "Authorization": f"Bearer {self.api_key}"
@@ -122,25 +266,16 @@ class OpenAIModel(BaseModel):
         message = response["choices"][0]["message"]
         content = message.get("content", "")
 
-        # Check if content is empty but reasoning exists (some models like Qwen use reasoning field)
         if not content or len(content.strip()) == 0:
-            # Try to use reasoning field if available
-            if "reasoning" in message and message["reasoning"]:
-                print_with_color("INFO: Using reasoning field as model returned empty content", "yellow")
-                content = message["reasoning"]
-            else:
-                print_with_color("WARNING: Model returned empty content", "yellow")
-                print_with_color(f"Full response: {response}", "yellow")
-                return False, "Model returned empty response"
+            print_with_color("WARNING: Model returned empty content", "yellow")
+            return False, "Model returned empty response"
 
         # Print usage info if available
         if "usage" in response:
             usage = response["usage"]
             prompt_tokens = usage.get("prompt_tokens", 0)
             completion_tokens = usage.get("completion_tokens", 0)
-            print_with_color(f"Request cost is "
-                             f"${'{0:.2f}'.format(prompt_tokens / 1000 * 0.01 + completion_tokens / 1000 * 0.03)}",
-                             "yellow")
+            print_with_color(f"Tokens - Prompt: {prompt_tokens}, Completion: {completion_tokens}", "yellow")
 
         # Print response time
         print_with_color(f"Response time: {response_time:.2f}s", "yellow")
@@ -253,259 +388,6 @@ class OllamaModel(BaseModel):
             response_time = time.time() - start_time
             print_with_color(f"ERROR: Ollama request failed after {response_time:.2f}s: {e}", "red")
             return False, f"Ollama request failed: {str(e)}"
-
-
-class UnifiedModel(BaseModel):
-    """
-    Unified Model using LiteLLM for 100+ LLM providers.
-
-    Supports all modern model APIs including:
-    - OpenRouter (openrouter/...)
-    - Anthropic Claude (claude-...)
-    - xAI Grok (xai/grok-...)
-    - OpenAI (gpt-...)
-    - Google Gemini (gemini/...)
-    - Azure OpenAI (azure/...)
-    - Cohere (command-...)
-    - Mistral (mistral/...)
-    - And 100+ more providers
-
-    The unified interface normalizes all responses to a consistent format.
-    """
-    def __init__(self, api_key: str, model: str, temperature: float, max_tokens: int, base_url: str = None):
-        super().__init__()
-        if not LITELLM_AVAILABLE:
-            raise ImportError("LiteLLM is not installed. Install it with: pip install litellm")
-
-        self.api_key = api_key
-        self.model = model
-        self.temperature = temperature
-        self.max_tokens = max_tokens
-        self.base_url = base_url
-
-        # Detect provider from model name
-        self.provider = self._detect_provider(model)
-        print_with_color(f"✓ Unified Model initialized: {model} (Provider: {self.provider}, via LiteLLM)", "green")
-
-    def _detect_provider(self, model: str) -> str:
-        """Detect the provider from the model name."""
-        if model.startswith("openrouter/"):
-            return "OpenRouter"
-        elif model.startswith("claude-"):
-            return "Anthropic"
-        elif model.startswith("xai/") or model.startswith("grok"):
-            return "xAI (Grok)"
-        elif model.startswith("gpt-"):
-            return "OpenAI"
-        elif model.startswith("gemini/"):
-            return "Google Gemini"
-        elif model.startswith("azure/"):
-            return "Azure OpenAI"
-        elif model.startswith("command-") or model.startswith("cohere/"):
-            return "Cohere"
-        elif model.startswith("mistral/"):
-            return "Mistral"
-        elif model.startswith("together_ai/"):
-            return "Together AI"
-        elif model.startswith("perplexity/"):
-            return "Perplexity"
-        elif model.startswith("deepseek/"):
-            return "DeepSeek"
-        else:
-            return "Unknown"
-
-    def get_model_response(self, prompt: str, images: List[str]) -> (bool, str):
-        """
-        Get model response using LiteLLM unified interface.
-
-        Args:
-            prompt: Text prompt
-            images: List of file paths
-
-        Returns:
-            (success, response_text)
-        """
-        start_time = time.time()
-
-        # Optimize images before encoding
-        optimized_images = []
-        for img_path in images:
-            optimized_path = optimize_image(img_path)
-            optimized_images.append(optimized_path)
-
-        # Build content array
-        content = [{"type": "text", "text": prompt}]
-
-        # Add images (LiteLLM handles base64 encoding internally)
-        for img in optimized_images:
-            base64_img = encode_image(img)
-            content.append({
-                "type": "image_url",
-                "image_url": {
-                    "url": f"data:image/jpeg;base64,{base64_img}"
-                }
-            })
-            print_with_color(f"Image encoded: {img}", "cyan")
-
-        try:
-            # Prepare completion parameters
-            completion_params = {
-                "model": self.model,
-                "messages": [{"role": "user", "content": content}],
-                "api_key": self.api_key,
-                "temperature": self.temperature,
-                "max_tokens": self.max_tokens,
-                "timeout": 120
-            }
-
-            # Add base_url if provided (for custom endpoints like OpenRouter)
-            if self.base_url:
-                completion_params["api_base"] = self.base_url
-                print_with_color(f"Using custom base URL: {self.base_url}", "cyan")
-
-            # LiteLLM automatically handles different provider formats
-            print_with_color(f"Sending request to {self.provider}...", "cyan")
-            response = completion(**completion_params)
-
-            # Calculate response time
-            response_time = time.time() - start_time
-
-            # LiteLLM normalizes all responses to OpenAI format
-            response_content = response.choices[0].message.content
-
-            if not response_content or len(response_content.strip()) == 0:
-                print_with_color("WARNING: Model returned empty content", "yellow")
-                return False, "Model returned empty response"
-
-            # Print usage info if available
-            if hasattr(response, 'usage') and response.usage:
-                usage = response.usage
-                prompt_tokens = getattr(usage, 'prompt_tokens', 0)
-                completion_tokens = getattr(usage, 'completion_tokens', 0)
-                total_tokens = getattr(usage, 'total_tokens', prompt_tokens + completion_tokens)
-                print_with_color(
-                    f"Tokens - Prompt: {prompt_tokens}, Completion: {completion_tokens}, Total: {total_tokens}",
-                    "yellow"
-                )
-
-            # Print response time
-            print_with_color(f"✓ {self.provider} response received in {response_time:.2f}s", "green")
-
-            return True, response_content
-
-        except Exception as e:
-            response_time = time.time() - start_time
-            error_msg = str(e)
-
-            # Provide helpful error messages for common issues
-            if "authentication" in error_msg.lower() or "api_key" in error_msg.lower():
-                print_with_color(f"ERROR: Authentication failed for {self.provider}. Check your API key.", "red")
-            elif "rate_limit" in error_msg.lower() or "quota" in error_msg.lower():
-                print_with_color(f"ERROR: Rate limit or quota exceeded for {self.provider}.", "red")
-            elif "not found" in error_msg.lower() or "404" in error_msg:
-                print_with_color(f"ERROR: Model '{self.model}' not found. Check the model name.", "red")
-            else:
-                print_with_color(f"ERROR: {self.provider} request failed after {response_time:.2f}s: {error_msg}", "red")
-
-            return False, f"{self.provider} request failed: {error_msg}"
-
-
-class AnthropicModel(BaseModel):
-    """
-    Anthropic Claude Model using official Anthropic SDK.
-    Optimized for Claude Sonnet, Opus, and Haiku models.
-    """
-    def __init__(self, api_key: str, model: str, temperature: float, max_tokens: int):
-        super().__init__()
-        if not ANTHROPIC_AVAILABLE:
-            raise ImportError("Anthropic SDK is not installed. Install it with: pip install anthropic")
-
-        self.client = Anthropic(api_key=api_key)
-        self.model = model
-        self.temperature = temperature
-        self.max_tokens = max_tokens
-        print_with_color(f"✓ Anthropic Model initialized: {model}", "green")
-
-    def get_model_response(self, prompt: str, images: List[str]) -> (bool, str):
-        """
-        Get model response using official Anthropic SDK.
-
-        Args:
-            prompt: Text prompt
-            images: List of file paths
-
-        Returns:
-            (success, response_text)
-        """
-        start_time = time.time()
-
-        # Optimize images before encoding
-        optimized_images = []
-        for img_path in images:
-            optimized_path = optimize_image(img_path)
-            optimized_images.append(optimized_path)
-
-        # Build content array (Anthropic format)
-        content = []
-
-        # Add images first (Anthropic prefers images before text)
-        for img in optimized_images:
-            base64_img = encode_image(img)
-            content.append({
-                "type": "image",
-                "source": {
-                    "type": "base64",
-                    "media_type": "image/jpeg",
-                    "data": base64_img
-                }
-            })
-            print_with_color(f"Image encoded: {img}", "cyan")
-
-        # Add text prompt
-        content.append({"type": "text", "text": prompt})
-
-        try:
-            # Use official Anthropic SDK
-            message = self.client.messages.create(
-                model=self.model,
-                max_tokens=self.max_tokens,
-                temperature=self.temperature,
-                messages=[{"role": "user", "content": content}]
-            )
-
-            # Calculate response time
-            response_time = time.time() - start_time
-
-            # Extract text from content blocks
-            # Anthropic returns content as a list of content blocks
-            text_content = []
-            for block in message.content:
-                if block.type == "text":
-                    text_content.append(block.text)
-                elif block.type == "thinking":
-                    # Some models include thinking blocks, we can optionally log this
-                    print_with_color(f"[Thinking block detected, length: {len(block.text)} chars]", "cyan")
-
-            response_text = "".join(text_content)
-
-            if not response_text or len(response_text.strip()) == 0:
-                print_with_color("WARNING: Model returned empty content", "yellow")
-                return False, "Model returned empty response"
-
-            # Print usage info
-            if hasattr(message, 'usage') and message.usage:
-                print_with_color(f"Tokens - Input: {message.usage.input_tokens}, Output: {message.usage.output_tokens}", "yellow")
-
-            # Print response time
-            print_with_color(f"Response time: {response_time:.2f}s", "yellow")
-
-            return True, response_text
-
-        except Exception as e:
-            response_time = time.time() - start_time
-            print_with_color(f"ERROR: Anthropic request failed after {response_time:.2f}s: {e}", "red")
-            return False, f"Anthropic request failed: {str(e)}"
-
 
 def parse_explore_rsp(rsp):
     try:

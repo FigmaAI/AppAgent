@@ -1,15 +1,6 @@
-# Modern Model API Providers Guide
+# Modern Model API Support
 
-This guide shows you how to use AppAgent with various modern AI model providers including **OpenRouter, Anthropic Claude, xAI Grok, OpenAI, Google Gemini**, and many more.
-
-## Table of Contents
-- [Quick Start](#quick-start)
-- [Supported Providers](#supported-providers)
-- [Configuration Guide](#configuration-guide)
-- [Provider-Specific Setup](#provider-specific-setup)
-- [Troubleshooting](#troubleshooting)
-
----
+AppAgent now supports **100+ model providers** through a unified interface, powered by LiteLLM. You can use OpenAI, Anthropic Claude, xAI Grok, Google Gemini, OpenRouter, and many more providers using the same simple configuration.
 
 ## Quick Start
 
@@ -18,261 +9,190 @@ This guide shows you how to use AppAgent with various modern AI model providers 
 pip install -r requirements.txt
 ```
 
-### 2. Choose Your Provider
-AppAgent supports **100+ model providers** through two methods:
+### 2. Configure Your Model
 
-**Method 1: Unified Mode (Recommended)**
-- Use `MODEL: "unified"` in `config.yaml`
-- Works with **OpenRouter, Claude, Grok, Gemini, GPT-4, and 100+ more**
-- Single interface, normalized responses
-
-**Method 2: Direct SDK**
-- Use `MODEL: "anthropic"` for Anthropic Claude (uses official SDK)
-- Optimized for Claude-specific features
-
-### 3. Configure Your API Key
 Edit `config.yaml`:
 ```yaml
-MODEL: "unified"
-UNIFIED_API_KEY: "your-api-key-here"
-UNIFIED_MODEL: "claude-sonnet-4-5-20250929"
+MODEL: "api"  # Use "api" for all cloud models, "local" for Ollama
+API_KEY: "your-api-key"
+API_MODEL: "gpt-4o"  # Or any other supported model
 ```
+
+That's it! The system automatically detects the provider from the model name.
 
 ---
 
 ## Supported Providers
 
-| Provider | Model Examples | Prefix | Vision Support |
-|----------|---------------|--------|----------------|
-| **OpenRouter** | Claude, GPT-4, Gemini, Grok, etc. | `openrouter/` | ✅ |
-| **Anthropic** | Claude Sonnet 4.5, Opus 4, Haiku | `claude-` | ✅ |
-| **xAI** | Grok Beta, Grok Vision | `xai/` | ✅ |
-| **OpenAI** | GPT-4o, GPT-4 Turbo, GPT-4o Mini | `gpt-` | ✅ |
-| **Google** | Gemini 2.0 Flash, Gemini Pro Vision | `gemini/` | ✅ |
-| **Mistral** | Mistral Large, Pixtral | `mistral/` | ✅ |
-| **DeepSeek** | DeepSeek Chat, DeepSeek Reasoner | `deepseek/` | ❌ |
-| **Together AI** | Various open models | `together_ai/` | Varies |
-| **Perplexity** | Sonar models | `perplexity/` | ❌ |
-| **Cohere** | Command R+, Command R | `command-` | ❌ |
+AppAgent automatically supports all these providers through LiteLLM:
 
-And 90+ more providers supported by [LiteLLM](https://docs.litellm.ai/docs/providers)!
+| Provider | Models | Get API Key |
+|----------|--------|-------------|
+| **OpenAI** | GPT-4o, GPT-4 Turbo, GPT-4o-mini | [platform.openai.com/api-keys](https://platform.openai.com/api-keys) |
+| **Anthropic** | Claude Sonnet 4.5, Opus 4, Haiku | [console.anthropic.com](https://console.anthropic.com/) |
+| **xAI** | Grok Beta, Grok Vision | [console.x.ai](https://console.x.ai/) |
+| **Google** | Gemini 2.0 Flash, Gemini Pro Vision | [aistudio.google.com/app/apikey](https://aistudio.google.com/app/apikey) |
+| **OpenRouter** | 100+ models from all providers | [openrouter.ai/keys](https://openrouter.ai/keys) |
+| **Mistral** | Mistral Large, Pixtral | [console.mistral.ai](https://console.mistral.ai/) |
+| **DeepSeek** | DeepSeek Chat, Reasoner | [platform.deepseek.com](https://platform.deepseek.com/) |
+| **+ 90 more** | See [LiteLLM docs](https://docs.litellm.ai/docs/providers) | Various |
 
 ---
 
-## Configuration Guide
+## Configuration Examples
 
-### Unified Mode Configuration
-Edit `config.yaml`:
-
+### OpenAI GPT-4o
 ```yaml
-MODEL: "unified"  # Use LiteLLM for all modern APIs
-
-# Required fields
-UNIFIED_API_KEY: "your-api-key"
-UNIFIED_MODEL: "model-name"
-
-# Optional: Custom base URL (for OpenRouter, custom endpoints, etc.)
-UNIFIED_BASE_URL: ""  # Leave empty for default endpoints
-
-# Common settings
-TEMPERATURE: 0.0
-MAX_TOKENS: 4096
+MODEL: "api"
+API_KEY: "sk-..."
+API_MODEL: "gpt-4o"
 ```
 
-### Command Line Override
-You can override settings via CLI:
+### Anthropic Claude Sonnet 4.5
+```yaml
+MODEL: "api"
+API_KEY: "sk-ant-..."
+API_MODEL: "claude-sonnet-4-5-20250929"
+```
+
+### xAI Grok Vision
+```yaml
+MODEL: "api"
+API_KEY: "xai-..."
+API_MODEL: "grok-vision-beta"
+```
+
+### Google Gemini 2.0 Flash
+```yaml
+MODEL: "api"
+API_KEY: "..."
+API_MODEL: "gemini/gemini-2.0-flash-exp"
+```
+
+### OpenRouter (Access All Models)
+```yaml
+MODEL: "api"
+API_KEY: "sk-or-v1-..."
+API_BASE_URL: "https://openrouter.ai/api/v1"
+API_MODEL: "openrouter/anthropic/claude-sonnet-4"
+```
+
+You can also use:
+- `openrouter/google/gemini-2.0-flash-exp`
+- `openrouter/x-ai/grok-2-vision-1212`
+- `openrouter/openai/gpt-4o`
+- And 100+ more!
+
+### Mistral Pixtral (Vision)
+```yaml
+MODEL: "api"
+API_KEY: "..."
+API_MODEL: "mistral/pixtral-12b-2409"
+```
+
+### DeepSeek Chat
+```yaml
+MODEL: "api"
+API_KEY: "..."
+API_MODEL: "deepseek/deepseek-chat"
+```
+
+---
+
+## Command Line Usage
+
+Override model settings from the command line:
+
 ```bash
+# Use Claude Sonnet 4.5
 python scripts/self_explorer.py \
-  --model unified \
+  --model api \
   --model_name "claude-sonnet-4-5-20250929" \
+  --app YourApp
+
+# Use Grok via OpenRouter
+python scripts/task_executor.py \
+  --model api \
+  --model_name "openrouter/x-ai/grok-2-vision-1212" \
+  --app YourApp \
+  --task_desc "Your task here"
+
+# Use Gemini 2.0 Flash
+python scripts/self_explorer.py \
+  --model api \
+  --model_name "gemini/gemini-2.0-flash-exp" \
   --app YourApp
 ```
 
 ---
 
-## Provider-Specific Setup
+## How It Works
 
-### 🌐 OpenRouter (Recommended for Multi-Model Access)
+### Automatic Provider Detection
 
-**Why OpenRouter?**
-- Access 100+ models through one API
-- No need to manage multiple API keys
-- Competitive pricing
-- Unified billing
+The system automatically detects the provider from your model name:
 
-**Setup:**
-```yaml
-MODEL: "unified"
-UNIFIED_API_KEY: "sk-or-v1-..."  # Get from https://openrouter.ai/keys
-UNIFIED_BASE_URL: "https://openrouter.ai/api/v1"
-UNIFIED_MODEL: "openrouter/anthropic/claude-sonnet-4"
-```
+- `gpt-*` → OpenAI
+- `claude-*` → Anthropic
+- `grok*` or `xai/*` → xAI
+- `gemini/*` → Google
+- `openrouter/*` → OpenRouter
+- `mistral/*` → Mistral
+- `deepseek/*` → DeepSeek
+- And more...
 
-**Popular Models via OpenRouter:**
-```yaml
-# Claude Sonnet 4
-UNIFIED_MODEL: "openrouter/anthropic/claude-sonnet-4"
+No need to configure the provider separately!
 
-# GPT-4o
-UNIFIED_MODEL: "openrouter/openai/gpt-4o"
+### LiteLLM Integration
 
-# Gemini 2.0 Flash
-UNIFIED_MODEL: "openrouter/google/gemini-2.0-flash-exp"
+Under the hood, AppAgent uses [LiteLLM](https://docs.litellm.ai/) to:
+- Normalize API responses across all providers
+- Handle authentication automatically
+- Provide helpful error messages
+- Support 100+ providers with a single interface
 
-# Grok 2 Vision
-UNIFIED_MODEL: "openrouter/x-ai/grok-2-vision-1212"
+### Fallback Mode
 
-# DeepSeek Chat
-UNIFIED_MODEL: "openrouter/deepseek/deepseek-chat"
+If LiteLLM is not installed, AppAgent falls back to basic OpenAI-compatible mode using the `requests` library. Install LiteLLM for full provider support:
+
+```bash
+pip install litellm
 ```
 
 ---
 
-### 🤖 Anthropic Claude (Direct API)
+## Features
 
-**Setup via Unified Mode:**
-```yaml
-MODEL: "unified"
-UNIFIED_API_KEY: "sk-ant-..."  # Get from https://console.anthropic.com/
-UNIFIED_MODEL: "claude-sonnet-4-5-20250929"
-```
+### ✅ What's Supported
 
-**Setup via Anthropic SDK (Alternative):**
-```yaml
-MODEL: "anthropic"
-ANTHROPIC_API_KEY: "sk-ant-..."
-ANTHROPIC_MODEL: "claude-sonnet-4-5-20250929"
-```
+- **100+ model providers** through LiteLLM
+- **Vision models** from all major providers
+- **Automatic format conversion** (all responses normalized)
+- **Custom base URLs** (for OpenRouter, proxies, etc.)
+- **Token usage tracking** across all providers
+- **Helpful error messages** for common issues
+- **Backward compatibility** with existing configurations
 
-**Available Claude Models:**
-```yaml
-# Latest Sonnet 4.5 (Best for most tasks)
-UNIFIED_MODEL: "claude-sonnet-4-5-20250929"
+### 🎯 Best Practices
 
-# Opus 4 (Most capable)
-UNIFIED_MODEL: "claude-opus-4-20250514"
+1. **Start with cheaper models** for testing:
+   - `gpt-4o-mini` (OpenAI)
+   - `claude-3-5-haiku-20241022` (Anthropic)
+   - `gemini/gemini-2.0-flash-exp` (Google)
 
-# Sonnet 3.5 (Previous generation)
-UNIFIED_MODEL: "claude-3-5-sonnet-20241022"
+2. **Use OpenRouter** for easy access to multiple providers:
+   - Single API key
+   - Unified billing
+   - Access 100+ models
 
-# Haiku 3.5 (Fast and affordable)
-UNIFIED_MODEL: "claude-3-5-haiku-20241022"
-```
+3. **Optimize costs**:
+   - Enable image optimization in `config.yaml`
+   - Set appropriate `MAX_TOKENS` limits
+   - Use fast models for simple tasks
 
----
-
-### 🚀 xAI Grok
-
-**Setup:**
-```yaml
-MODEL: "unified"
-UNIFIED_API_KEY: "xai-..."  # Get from https://console.x.ai/
-UNIFIED_MODEL: "xai/grok-beta"
-```
-
-**Available Grok Models:**
-```yaml
-# Grok Beta
-UNIFIED_MODEL: "xai/grok-beta"
-
-# Grok Vision Beta (with image understanding)
-UNIFIED_MODEL: "xai/grok-vision-beta"
-```
-
----
-
-### 🔵 OpenAI
-
-**Setup:**
-```yaml
-MODEL: "unified"
-UNIFIED_API_KEY: "sk-..."  # Get from https://platform.openai.com/api-keys
-UNIFIED_MODEL: "gpt-4o"
-```
-
-**Available Models:**
-```yaml
-# GPT-4 Omni (Latest, multimodal)
-UNIFIED_MODEL: "gpt-4o"
-
-# GPT-4 Omni Mini (Faster, cheaper)
-UNIFIED_MODEL: "gpt-4o-mini"
-
-# GPT-4 Turbo
-UNIFIED_MODEL: "gpt-4-turbo"
-
-# GPT-4 Vision
-UNIFIED_MODEL: "gpt-4-vision-preview"
-```
-
----
-
-### 🔮 Google Gemini
-
-**Setup:**
-```yaml
-MODEL: "unified"
-UNIFIED_API_KEY: "..."  # Get from https://aistudio.google.com/app/apikey
-UNIFIED_MODEL: "gemini/gemini-2.0-flash-exp"
-```
-
-**Available Models:**
-```yaml
-# Gemini 2.0 Flash (Latest, fast)
-UNIFIED_MODEL: "gemini/gemini-2.0-flash-exp"
-
-# Gemini Pro Vision
-UNIFIED_MODEL: "gemini/gemini-pro-vision"
-
-# Gemini Pro
-UNIFIED_MODEL: "gemini/gemini-pro"
-```
-
----
-
-### 🌟 Mistral AI
-
-**Setup:**
-```yaml
-MODEL: "unified"
-UNIFIED_API_KEY: "..."  # Get from https://console.mistral.ai/
-UNIFIED_MODEL: "mistral/mistral-large-latest"
-```
-
-**Available Models:**
-```yaml
-# Mistral Large (Most capable)
-UNIFIED_MODEL: "mistral/mistral-large-latest"
-
-# Pixtral (Vision model)
-UNIFIED_MODEL: "mistral/pixtral-12b-2409"
-
-# Mistral Medium
-UNIFIED_MODEL: "mistral/mistral-medium-latest"
-```
-
----
-
-### 🔍 DeepSeek
-
-**Setup:**
-```yaml
-MODEL: "unified"
-UNIFIED_API_KEY: "..."  # Get from https://platform.deepseek.com/
-UNIFIED_MODEL: "deepseek/deepseek-chat"
-```
-
-**Available Models:**
-```yaml
-# DeepSeek Chat
-UNIFIED_MODEL: "deepseek/deepseek-chat"
-
-# DeepSeek Reasoner
-UNIFIED_MODEL: "deepseek/deepseek-reasoner"
-
-# DeepSeek Coder
-UNIFIED_MODEL: "deepseek/deepseek-coder"
-```
+4. **Monitor usage**:
+   - Check token counts in console output
+   - Track API costs through provider dashboards
 
 ---
 
@@ -282,109 +202,108 @@ UNIFIED_MODEL: "deepseek/deepseek-coder"
 ```
 ERROR: Authentication failed for [Provider]. Check your API key.
 ```
-**Solution:**
-- Verify your API key is correct in `config.yaml`
-- Ensure the key has proper permissions
-- Check if your account has credits/quota
+
+**Solution:** Verify your API key is correct and has proper permissions.
 
 ### Model Not Found
 ```
 ERROR: Model 'xxx' not found. Check the model name.
 ```
-**Solution:**
-- Verify model name is spelled correctly
-- Check if model requires specific access/waitlist
-- Refer to provider documentation for available models
 
-### Rate Limit Errors
+**Solution:** Check the model name spelling. Refer to provider documentation for available models.
+
+### Rate Limits
 ```
 ERROR: Rate limit or quota exceeded for [Provider].
 ```
-**Solution:**
-- Wait a few minutes and try again
-- Check your account's rate limits
-- Consider upgrading your plan or using a different model
+
+**Solution:** Wait a few minutes or upgrade your plan.
 
 ### Empty Response
 ```
 WARNING: Model returned empty content
 ```
+
 **Solution:**
-- Some models may timeout on complex images
-- Try reducing `IMAGE_MAX_WIDTH` and `IMAGE_MAX_HEIGHT` in config.yaml
-- Increase `MAX_TOKENS` if the response is being cut off
-
-### Provider-Specific Issues
-
-**OpenRouter:**
-- Ensure you're using the correct model format: `openrouter/provider/model-name`
-- Check [OpenRouter Models](https://openrouter.ai/models) for available models
-- Set `UNIFIED_BASE_URL: "https://openrouter.ai/api/v1"`
-
-**Anthropic:**
-- Ensure API key starts with `sk-ant-`
-- Claude models require `max_tokens` parameter (already set in config)
-
-**xAI Grok:**
-- Grok is currently in beta - you may need waitlist access
-- Ensure API key format is correct
+- Try reducing `IMAGE_MAX_WIDTH` and `IMAGE_MAX_HEIGHT` in `config.yaml`
+- Increase `MAX_TOKENS` if responses are being cut off
 
 ---
 
-## Best Practices
+## Advanced Configuration
 
-### 1. Choose the Right Model
-- **For complex reasoning:** Claude Opus 4, GPT-4o
-- **For speed:** Claude Sonnet 4.5, GPT-4o-mini, Gemini 2.0 Flash
-- **For cost:** GPT-4o-mini, Claude Haiku, Gemini Flash
-- **For vision tasks:** All models listed support vision
+### Custom Base URLs
 
-### 2. Optimize Performance
+For providers like OpenRouter or custom proxies:
+
 ```yaml
-# Faster responses
-TEMPERATURE: 0.0  # More deterministic
-MAX_TOKENS: 2048  # Shorter responses
+API_BASE_URL: "https://openrouter.ai/api/v1"
+API_KEY: "sk-or-v1-..."
+API_MODEL: "openrouter/anthropic/claude-sonnet-4"
+```
 
-# Better quality
-TEMPERATURE: 0.3  # More creative
-MAX_TOKENS: 4096  # Longer responses
+### Image Optimization
 
-# Image optimization (reduces cost & latency)
+Reduce costs and latency by optimizing images:
+
+```yaml
 IMAGE_MAX_WIDTH: 512
 IMAGE_MAX_HEIGHT: 512
+IMAGE_QUALITY: 85
 OPTIMIZE_IMAGES: true
 ```
 
-### 3. Monitor Costs
-- Start with cheaper models (GPT-4o-mini, Claude Haiku) for testing
-- Use OpenRouter to compare pricing across models
-- Enable image optimization to reduce token usage
-- Set reasonable `MAX_TOKENS` limits
+### Model Settings
 
-### 4. Handle Errors Gracefully
-- Implement retry logic for transient errors
-- Have fallback models configured
-- Monitor rate limits
+Adjust model behavior:
+
+```yaml
+TEMPERATURE: 0.0      # More deterministic (0-1)
+MAX_TOKENS: 4096      # Maximum response length
+REQUEST_INTERVAL: 10  # Seconds between requests
+```
+
+---
+
+## Migration Guide
+
+### From Previous Versions
+
+If you were using `unified` or `anthropic` modes:
+
+**Old Configuration:**
+```yaml
+MODEL: "unified"
+UNIFIED_API_KEY: "sk-ant-..."
+UNIFIED_MODEL: "claude-sonnet-4-5-20250929"
+```
+
+**New Configuration:**
+```yaml
+MODEL: "api"
+API_KEY: "sk-ant-..."
+API_MODEL: "claude-sonnet-4-5-20250929"
+```
+
+The new simplified approach works the same way but with less configuration!
 
 ---
 
 ## Additional Resources
 
-- **LiteLLM Documentation:** https://docs.litellm.ai/
-- **OpenRouter:** https://openrouter.ai/
-- **Anthropic Claude:** https://console.anthropic.com/
-- **OpenAI Platform:** https://platform.openai.com/
-- **Google AI Studio:** https://aistudio.google.com/
-- **xAI Console:** https://console.x.ai/
+- **LiteLLM Documentation:** [docs.litellm.ai](https://docs.litellm.ai/)
+- **Supported Providers:** [docs.litellm.ai/docs/providers](https://docs.litellm.ai/docs/providers)
+- **OpenRouter Models:** [openrouter.ai/models](https://openrouter.ai/models)
+- **AppAgent Documentation:** See main README.md
 
 ---
 
 ## Support
 
-For issues specific to AppAgent's model integration:
-1. Check this documentation first
-2. Verify your configuration in `config.yaml`
-3. Test with a simple model (e.g., `gpt-4o-mini`) to isolate issues
-4. Report issues with clear error messages and configuration details
+For issues with AppAgent's model integration:
+1. Check `config.yaml` configuration
+2. Verify API key and model name
+3. Test with `gpt-4o-mini` to isolate issues
+4. Check provider documentation for model availability
 
 For provider-specific API issues, contact the respective provider's support.

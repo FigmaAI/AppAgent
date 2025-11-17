@@ -10,7 +10,7 @@ import time
 import prompts
 from config import load_config
 from and_controller import list_all_devices, AndroidController, traverse_tree, start_emulator, list_available_emulators
-from model import parse_explore_rsp, parse_grid_rsp, OpenAIModel, OllamaModel, UnifiedModel, AnthropicModel
+from model import parse_explore_rsp, parse_grid_rsp, OpenAIModel, OllamaModel
 from utils import print_with_color, draw_bbox_multi, draw_grid
 
 arg_desc = "AppAgent Executor"
@@ -27,10 +27,10 @@ parser.add_argument("--url", default=None,
                     help="URL for web platform")
 
 # Model override parameters (Task-specific model selection)
-parser.add_argument("--model", choices=["api", "local", "unified", "anthropic"], default=None,
+parser.add_argument("--model", choices=["api", "local"], default=None,
                     help="Model provider (overrides MODEL env var)")
 parser.add_argument("--model_name", default=None,
-                    help="Model name (overrides API_MODEL, LOCAL_MODEL, UNIFIED_MODEL, or ANTHROPIC_MODEL env var)")
+                    help="Model name (overrides API_MODEL or LOCAL_MODEL env var)")
 
 args = vars(parser.parse_args())
 
@@ -42,41 +42,23 @@ if args["model"]:
 if args["model_name"]:
     if configs["MODEL"] == "api":
         configs["API_MODEL"] = args["model_name"]
-    elif configs["MODEL"] == "local":
+    else:
         configs["LOCAL_MODEL"] = args["model_name"]
-    elif configs["MODEL"] == "unified":
-        configs["UNIFIED_MODEL"] = args["model_name"]
-    elif configs["MODEL"] == "anthropic":
-        configs["ANTHROPIC_MODEL"] = args["model_name"]
 
 if configs["MODEL"] == "api":
-    # OpenAI API: Uses base64 encoding
+    # API Model: Supports 100+ providers via LiteLLM (OpenAI, Claude, Grok, Gemini, etc.)
     mllm = OpenAIModel(base_url=configs["API_BASE_URL"],
                        api_key=configs["API_KEY"],
                        model=configs["API_MODEL"],
                        temperature=configs["TEMPERATURE"],
                        max_tokens=configs["MAX_TOKENS"])
 elif configs["MODEL"] == "local":
-    # Ollama: Uses native SDK with file paths directly
+    # Ollama: Local models
     mllm = OllamaModel(model=configs["LOCAL_MODEL"],
                        temperature=configs["TEMPERATURE"],
                        max_tokens=configs["MAX_TOKENS"])
-elif configs["MODEL"] == "unified":
-    # LiteLLM: Unified interface for 100+ providers (OpenRouter, Claude, Grok, Gemini, etc.)
-    base_url = configs.get("UNIFIED_BASE_URL", "") or None  # Convert empty string to None
-    mllm = UnifiedModel(api_key=configs["UNIFIED_API_KEY"],
-                        model=configs["UNIFIED_MODEL"],
-                        temperature=configs["TEMPERATURE"],
-                        max_tokens=configs["MAX_TOKENS"],
-                        base_url=base_url)
-elif configs["MODEL"] == "anthropic":
-    # Anthropic: Official Claude SDK
-    mllm = AnthropicModel(api_key=configs["ANTHROPIC_API_KEY"],
-                          model=configs["ANTHROPIC_MODEL"],
-                          temperature=configs["TEMPERATURE"],
-                          max_tokens=configs["MAX_TOKENS"])
 else:
-    print_with_color(f"ERROR: Unsupported model type {configs['MODEL']}! Use 'api', 'local', 'unified', or 'anthropic'.", "red")
+    print_with_color(f"ERROR: Unsupported model type {configs['MODEL']}! Use 'api' or 'local'.", "red")
     sys.exit()
 
 app = args["app"]

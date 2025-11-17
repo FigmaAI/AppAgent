@@ -1,77 +1,61 @@
-MODEL: "local"  # Choose: "api" (OpenAI-compatible), "local" (Ollama), "unified" (LiteLLM for modern APIs), or "anthropic" (Claude SDK)
+MODEL: "local"  # Choose: "api" (for all cloud APIs) or "local" (for Ollama)
 
 # =============================================================================
-# Modern Model API Configuration (RECOMMENDED)
+# API Model Configuration (Supports 100+ Providers via LiteLLM)
 # =============================================================================
-# Use "unified" mode with LiteLLM for all modern APIs including:
-# - OpenRouter (access 100+ models through one API)
-# - Anthropic Claude (Sonnet 4.5, Opus, Haiku)
-# - xAI Grok (Grok-1, Grok-2)
-# - OpenAI (GPT-4o, GPT-4 Turbo)
-# - Google Gemini (Gemini Pro, Flash)
-# - And many more...
+# Set MODEL to "api" to use cloud-based models
+# Automatically supports: OpenAI, Anthropic Claude, xAI Grok, Google Gemini,
+# OpenRouter, Mistral, DeepSeek, and 90+ more providers
 
-UNIFIED_API_KEY: ""  # Your API key for the chosen provider
-UNIFIED_MODEL: "claude-sonnet-4-5-20250929"  # Model name (see examples below)
-UNIFIED_BASE_URL: ""  # Optional: Custom base URL (e.g., for OpenRouter: "https://openrouter.ai/api/v1")
-
-# =============================================================================
-# UNIFIED MODEL EXAMPLES (copy the model name you want to use)
-# =============================================================================
-
-# --- OpenRouter (Recommended for accessing multiple models) ---
-# UNIFIED_API_KEY: "sk-or-v1-..."  # Get from https://openrouter.ai/keys
-# UNIFIED_BASE_URL: "https://openrouter.ai/api/v1"
-# UNIFIED_MODEL: "openrouter/anthropic/claude-sonnet-4"  # Claude Sonnet 4
-# UNIFIED_MODEL: "openrouter/google/gemini-2.0-flash-exp"  # Gemini 2.0 Flash
-# UNIFIED_MODEL: "openrouter/x-ai/grok-2-vision-1212"  # Grok 2 Vision
-# UNIFIED_MODEL: "openrouter/openai/gpt-4o"  # GPT-4o
-# UNIFIED_MODEL: "openrouter/deepseek/deepseek-chat"  # DeepSeek
-
-# --- Anthropic Claude (Direct API) ---
-# UNIFIED_API_KEY: "sk-ant-..."  # Get from https://console.anthropic.com/
-# UNIFIED_MODEL: "claude-sonnet-4-5-20250929"  # Latest Sonnet 4.5
-# UNIFIED_MODEL: "claude-opus-4-20250514"  # Claude Opus 4
-# UNIFIED_MODEL: "claude-3-5-sonnet-20241022"  # Claude 3.5 Sonnet
-
-# --- xAI Grok ---
-# UNIFIED_API_KEY: "xai-..."  # Get from https://console.x.ai/
-# UNIFIED_MODEL: "xai/grok-beta"  # Grok Beta
-# UNIFIED_MODEL: "xai/grok-vision-beta"  # Grok Vision
-
-# --- OpenAI ---
-# UNIFIED_API_KEY: "sk-..."  # Get from https://platform.openai.com/api-keys
-# UNIFIED_MODEL: "gpt-4o"  # GPT-4 Omni
-# UNIFIED_MODEL: "gpt-4o-mini"  # GPT-4 Omni Mini
-# UNIFIED_MODEL: "gpt-4-turbo"  # GPT-4 Turbo
-
-# --- Google Gemini ---
-# UNIFIED_API_KEY: "..."  # Get from https://aistudio.google.com/app/apikey
-# UNIFIED_MODEL: "gemini/gemini-2.0-flash-exp"  # Gemini 2.0 Flash
-# UNIFIED_MODEL: "gemini/gemini-pro-vision"  # Gemini Pro Vision
-
-# --- Mistral AI ---
-# UNIFIED_API_KEY: "..."  # Get from https://console.mistral.ai/
-# UNIFIED_MODEL: "mistral/mistral-large-latest"  # Mistral Large
-# UNIFIED_MODEL: "mistral/pixtral-12b-2409"  # Pixtral (vision)
-
-# --- DeepSeek ---
-# UNIFIED_API_KEY: "..."  # Get from https://platform.deepseek.com/
-# UNIFIED_MODEL: "deepseek/deepseek-chat"  # DeepSeek Chat
-# UNIFIED_MODEL: "deepseek/deepseek-reasoner"  # DeepSeek Reasoner
-
-# =============================================================================
-# Legacy API Configuration (OpenAI-compatible APIs)
-# =============================================================================
-API_BASE_URL: "https://api.openai.com/v1/chat/completions"
+API_BASE_URL: "https://api.openai.com/v1/chat/completions"  # Base URL (optional for most providers)
 API_KEY: "sk-"  # Your API key
-API_MODEL: "gpt-4o-mini"  # Model name
+API_MODEL: "gpt-4o-mini"  # Model name (see examples below)
 
 # =============================================================================
-# Anthropic Claude (Official SDK - alternative to unified mode)
+# SUPPORTED MODEL EXAMPLES (copy the model name you want to use)
 # =============================================================================
-ANTHROPIC_API_KEY: ""  # Your Anthropic API key
-ANTHROPIC_MODEL: "claude-sonnet-4-5-20250929"  # Claude model name
+
+# --- OpenAI (https://platform.openai.com/api-keys) ---
+# API_KEY: "sk-..."
+# API_MODEL: "gpt-4o"               # GPT-4 Omni
+# API_MODEL: "gpt-4o-mini"          # GPT-4 Omni Mini (cheaper)
+# API_MODEL: "gpt-4-turbo"          # GPT-4 Turbo
+
+# --- Anthropic Claude (https://console.anthropic.com/) ---
+# API_KEY: "sk-ant-..."
+# API_MODEL: "claude-sonnet-4-5-20250929"   # Latest Sonnet 4.5
+# API_MODEL: "claude-opus-4-20250514"       # Claude Opus 4
+# API_MODEL: "claude-3-5-sonnet-20241022"   # Claude 3.5 Sonnet
+# API_MODEL: "claude-3-5-haiku-20241022"    # Claude Haiku (faster/cheaper)
+
+# --- xAI Grok (https://console.x.ai/) ---
+# API_KEY: "xai-..."
+# API_MODEL: "grok-beta"            # Grok Beta
+# API_MODEL: "grok-vision-beta"     # Grok Vision
+
+# --- Google Gemini (https://aistudio.google.com/app/apikey) ---
+# API_KEY: "..."
+# API_MODEL: "gemini/gemini-2.0-flash-exp"  # Gemini 2.0 Flash
+# API_MODEL: "gemini/gemini-pro-vision"     # Gemini Pro Vision
+
+# --- OpenRouter (https://openrouter.ai/keys) - Access 100+ models ---
+# API_KEY: "sk-or-v1-..."
+# API_BASE_URL: "https://openrouter.ai/api/v1"
+# API_MODEL: "openrouter/anthropic/claude-sonnet-4"     # Claude via OpenRouter
+# API_MODEL: "openrouter/google/gemini-2.0-flash-exp"   # Gemini via OpenRouter
+# API_MODEL: "openrouter/x-ai/grok-2-vision-1212"       # Grok via OpenRouter
+# API_MODEL: "openrouter/openai/gpt-4o"                 # GPT-4o via OpenRouter
+# API_MODEL: "openrouter/deepseek/deepseek-chat"        # DeepSeek via OpenRouter
+
+# --- Mistral AI (https://console.mistral.ai/) ---
+# API_KEY: "..."
+# API_MODEL: "mistral/mistral-large-latest"  # Mistral Large
+# API_MODEL: "mistral/pixtral-12b-2409"      # Pixtral (vision)
+
+# --- DeepSeek (https://platform.deepseek.com/) ---
+# API_KEY: "..."
+# API_MODEL: "deepseek/deepseek-chat"        # DeepSeek Chat
+# API_MODEL: "deepseek/deepseek-reasoner"    # DeepSeek Reasoner
 
 # Local Model Configuration (Ollama)
 LOCAL_BASE_URL: "http://localhost:11434/v1/chat/completions"

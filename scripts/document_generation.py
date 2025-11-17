@@ -8,7 +8,7 @@ import time
 
 import prompts
 from config import load_config
-from model import OpenAIModel, OllamaModel, UnifiedModel, AnthropicModel
+from model import OpenAIModel, OllamaModel
 from utils import print_with_color
 
 arg_desc = "AppAgent - Human Demonstration"
@@ -21,33 +21,19 @@ args = vars(parser.parse_args())
 configs = load_config()
 
 if configs["MODEL"] == "api":
-    # OpenAI API: Uses base64 encoding
+    # API Model: Supports 100+ providers via LiteLLM (OpenAI, Claude, Grok, Gemini, etc.)
     mllm = OpenAIModel(base_url=configs["API_BASE_URL"],
                        api_key=configs["API_KEY"],
                        model=configs["API_MODEL"],
                        temperature=configs["TEMPERATURE"],
                        max_tokens=configs["MAX_TOKENS"])
 elif configs["MODEL"] == "local":
-    # Ollama: Uses native SDK with file paths directly
+    # Ollama: Local models
     mllm = OllamaModel(model=configs["LOCAL_MODEL"],
                        temperature=configs["TEMPERATURE"],
                        max_tokens=configs["MAX_TOKENS"])
-elif configs["MODEL"] == "unified":
-    # LiteLLM: Unified interface for 100+ providers (OpenRouter, Claude, Grok, Gemini, etc.)
-    base_url = configs.get("UNIFIED_BASE_URL", "") or None  # Convert empty string to None
-    mllm = UnifiedModel(api_key=configs["UNIFIED_API_KEY"],
-                        model=configs["UNIFIED_MODEL"],
-                        temperature=configs["TEMPERATURE"],
-                        max_tokens=configs["MAX_TOKENS"],
-                        base_url=base_url)
-elif configs["MODEL"] == "anthropic":
-    # Anthropic: Official Claude SDK
-    mllm = AnthropicModel(api_key=configs["ANTHROPIC_API_KEY"],
-                          model=configs["ANTHROPIC_MODEL"],
-                          temperature=configs["TEMPERATURE"],
-                          max_tokens=configs["MAX_TOKENS"])
 else:
-    print_with_color(f"ERROR: Unsupported model type {configs['MODEL']}! Use 'api', 'local', 'unified', or 'anthropic'.", "red")
+    print_with_color(f"ERROR: Unsupported model type {configs['MODEL']}! Use 'api' or 'local'.", "red")
     sys.exit()
 
 root_dir = args["root_dir"]
