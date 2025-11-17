@@ -1,9 +1,19 @@
-MODEL: "local"  # Choose "api" for OpenAI-compatible APIs (OpenAI, OpenRouter, etc.) or "local" for Ollama
+MODEL: "local"  # Choose: "api" (OpenAI-compatible), "local" (Ollama), "unified" (LiteLLM), or "anthropic" (Claude)
 
 # API Model Configuration (OpenAI, OpenRouter, or any OpenAI-compatible API)
 API_BASE_URL: "https://api.openai.com/v1/chat/completions"
 API_KEY: "sk-"  # Your API key
 API_MODEL: "gpt-4o-mini"  # Model name
+
+# Unified Model Configuration (LiteLLM - supports 100+ providers)
+# Examples: "gpt-4o", "claude-sonnet-4-5-20250929", "gemini/gemini-2.0-flash-exp", "azure/gpt-4"
+UNIFIED_API_KEY: ""  # API key for the chosen provider
+UNIFIED_MODEL: "claude-sonnet-4-5-20250929"  # Model name with provider prefix
+
+# Anthropic Model Configuration (Official Claude SDK)
+# Latest models: "claude-sonnet-4-5-20250929", "claude-opus-4-20250514", "claude-3-5-sonnet-20241022"
+ANTHROPIC_API_KEY: ""  # Your Anthropic API key
+ANTHROPIC_MODEL: "claude-sonnet-4-5-20250929"  # Claude model name
 
 # Local Model Configuration (Ollama)
 LOCAL_BASE_URL: "http://localhost:11434/v1/chat/completions"

@@ -15,7 +15,7 @@ import prompts
 from config import load_config
 from and_controller import list_all_devices, AndroidController, traverse_tree, start_emulator, list_available_emulators, stop_emulator
 from web_controller import WebController
-from model import parse_explore_rsp, parse_reflect_rsp, parse_grid_rsp, OpenAIModel, OllamaModel
+from model import parse_explore_rsp, parse_reflect_rsp, parse_grid_rsp, OpenAIModel, OllamaModel, UnifiedModel, AnthropicModel
 from utils import print_with_color, draw_bbox_multi, append_to_log, append_images_as_table, draw_grid
 
 # Global flag to track if we started an emulator
@@ -111,10 +111,10 @@ parser.add_argument("--task_desc", default=None, help="Task description (if not 
 parser.add_argument("--url", default=None, help="URL for web platform (if not provided, will prompt)")
 
 # Model override parameters (Task-specific model selection)
-parser.add_argument("--model", choices=["api", "local"], default=None,
+parser.add_argument("--model", choices=["api", "local", "unified", "anthropic"], default=None,
                     help="Model provider (overrides MODEL env var)")
 parser.add_argument("--model_name", default=None,
-                    help="Model name (overrides API_MODEL or LOCAL_MODEL env var)")
+                    help="Model name (overrides API_MODEL, LOCAL_MODEL, UNIFIED_MODEL, or ANTHROPIC_MODEL env var)")
 parser.add_argument("--task_dir", default=None, help="Directory to store task results")
 
 args = vars(parser.parse_args())
@@ -127,8 +127,12 @@ if args["model"]:
 if args["model_name"]:
     if configs["MODEL"] == "api":
         configs["API_MODEL"] = args["model_name"]
-    else:
+    elif configs["MODEL"] == "local":
         configs["LOCAL_MODEL"] = args["model_name"]
+    elif configs["MODEL"] == "unified":
+        configs["UNIFIED_MODEL"] = args["model_name"]
+    elif configs["MODEL"] == "anthropic":
+        configs["ANTHROPIC_MODEL"] = args["model_name"]
 
 if configs["MODEL"] == "api":
     # OpenAI API: Uses base64 encoding
@@ -142,8 +146,20 @@ elif configs["MODEL"] == "local":
     mllm = OllamaModel(model=configs["LOCAL_MODEL"],
                        temperature=configs["TEMPERATURE"],
                        max_tokens=configs["MAX_TOKENS"])
+elif configs["MODEL"] == "unified":
+    # LiteLLM: Unified interface for 100+ providers
+    mllm = UnifiedModel(api_key=configs["UNIFIED_API_KEY"],
+                        model=configs["UNIFIED_MODEL"],
+                        temperature=configs["TEMPERATURE"],
+                        max_tokens=configs["MAX_TOKENS"])
+elif configs["MODEL"] == "anthropic":
+    # Anthropic: Official Claude SDK
+    mllm = AnthropicModel(api_key=configs["ANTHROPIC_API_KEY"],
+                          model=configs["ANTHROPIC_MODEL"],
+                          temperature=configs["TEMPERATURE"],
+                          max_tokens=configs["MAX_TOKENS"])
 else:
-    print_with_color(f"ERROR: Unsupported model type {configs['MODEL']}! Use 'api' or 'local'.", "red")
+    print_with_color(f"ERROR: Unsupported model type {configs['MODEL']}! Use 'api', 'local', 'unified', or 'anthropic'.", "red")
     sys.exit()
 
 app = args["app"]

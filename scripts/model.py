@@ -7,6 +7,18 @@ from http import HTTPStatus
 import requests
 import ollama
 
+try:
+    from litellm import completion
+    LITELLM_AVAILABLE = True
+except ImportError:
+    LITELLM_AVAILABLE = False
+
+try:
+    from anthropic import Anthropic
+    ANTHROPIC_AVAILABLE = True
+except ImportError:
+    ANTHROPIC_AVAILABLE = False
+
 from config import load_config
 from utils import print_with_color, encode_image, optimize_image
 
@@ -241,6 +253,191 @@ class OllamaModel(BaseModel):
             response_time = time.time() - start_time
             print_with_color(f"ERROR: Ollama request failed after {response_time:.2f}s: {e}", "red")
             return False, f"Ollama request failed: {str(e)}"
+
+
+class UnifiedModel(BaseModel):
+    """
+    Unified Model using LiteLLM for 100+ LLM providers.
+    Supports OpenAI, Anthropic Claude, Azure, Cohere, Gemini, and more.
+    """
+    def __init__(self, api_key: str, model: str, temperature: float, max_tokens: int):
+        super().__init__()
+        if not LITELLM_AVAILABLE:
+            raise ImportError("LiteLLM is not installed. Install it with: pip install litellm")
+
+        self.api_key = api_key
+        self.model = model
+        self.temperature = temperature
+        self.max_tokens = max_tokens
+        print_with_color(f"✓ Unified Model initialized: {model} (via LiteLLM)", "green")
+
+    def get_model_response(self, prompt: str, images: List[str]) -> (bool, str):
+        """
+        Get model response using LiteLLM unified interface.
+
+        Args:
+            prompt: Text prompt
+            images: List of file paths
+
+        Returns:
+            (success, response_text)
+        """
+        start_time = time.time()
+
+        # Optimize images before encoding
+        optimized_images = []
+        for img_path in images:
+            optimized_path = optimize_image(img_path)
+            optimized_images.append(optimized_path)
+
+        # Build content array
+        content = [{"type": "text", "text": prompt}]
+
+        # Add images (LiteLLM handles base64 encoding internally)
+        for img in optimized_images:
+            base64_img = encode_image(img)
+            content.append({
+                "type": "image_url",
+                "image_url": {
+                    "url": f"data:image/jpeg;base64,{base64_img}"
+                }
+            })
+            print_with_color(f"Image encoded: {img}", "cyan")
+
+        try:
+            # LiteLLM automatically handles different provider formats
+            response = completion(
+                model=self.model,
+                messages=[{"role": "user", "content": content}],
+                api_key=self.api_key,
+                temperature=self.temperature,
+                max_tokens=self.max_tokens,
+                timeout=120
+            )
+
+            # Calculate response time
+            response_time = time.time() - start_time
+
+            # LiteLLM normalizes all responses to OpenAI format
+            content = response.choices[0].message.content
+
+            if not content or len(content.strip()) == 0:
+                print_with_color("WARNING: Model returned empty content", "yellow")
+                return False, "Model returned empty response"
+
+            # Print usage info if available
+            if hasattr(response, 'usage') and response.usage:
+                usage = response.usage
+                prompt_tokens = getattr(usage, 'prompt_tokens', 0)
+                completion_tokens = getattr(usage, 'completion_tokens', 0)
+                print_with_color(f"Tokens - Prompt: {prompt_tokens}, Completion: {completion_tokens}", "yellow")
+
+            # Print response time
+            print_with_color(f"Response time: {response_time:.2f}s", "yellow")
+
+            return True, content
+
+        except Exception as e:
+            response_time = time.time() - start_time
+            print_with_color(f"ERROR: LiteLLM request failed after {response_time:.2f}s: {e}", "red")
+            return False, f"LiteLLM request failed: {str(e)}"
+
+
+class AnthropicModel(BaseModel):
+    """
+    Anthropic Claude Model using official Anthropic SDK.
+    Optimized for Claude Sonnet, Opus, and Haiku models.
+    """
+    def __init__(self, api_key: str, model: str, temperature: float, max_tokens: int):
+        super().__init__()
+        if not ANTHROPIC_AVAILABLE:
+            raise ImportError("Anthropic SDK is not installed. Install it with: pip install anthropic")
+
+        self.client = Anthropic(api_key=api_key)
+        self.model = model
+        self.temperature = temperature
+        self.max_tokens = max_tokens
+        print_with_color(f"✓ Anthropic Model initialized: {model}", "green")
+
+    def get_model_response(self, prompt: str, images: List[str]) -> (bool, str):
+        """
+        Get model response using official Anthropic SDK.
+
+        Args:
+            prompt: Text prompt
+            images: List of file paths
+
+        Returns:
+            (success, response_text)
+        """
+        start_time = time.time()
+
+        # Optimize images before encoding
+        optimized_images = []
+        for img_path in images:
+            optimized_path = optimize_image(img_path)
+            optimized_images.append(optimized_path)
+
+        # Build content array (Anthropic format)
+        content = []
+
+        # Add images first (Anthropic prefers images before text)
+        for img in optimized_images:
+            base64_img = encode_image(img)
+            content.append({
+                "type": "image",
+                "source": {
+                    "type": "base64",
+                    "media_type": "image/jpeg",
+                    "data": base64_img
+                }
+            })
+            print_with_color(f"Image encoded: {img}", "cyan")
+
+        # Add text prompt
+        content.append({"type": "text", "text": prompt})
+
+        try:
+            # Use official Anthropic SDK
+            message = self.client.messages.create(
+                model=self.model,
+                max_tokens=self.max_tokens,
+                temperature=self.temperature,
+                messages=[{"role": "user", "content": content}]
+            )
+
+            # Calculate response time
+            response_time = time.time() - start_time
+
+            # Extract text from content blocks
+            # Anthropic returns content as a list of content blocks
+            text_content = []
+            for block in message.content:
+                if block.type == "text":
+                    text_content.append(block.text)
+                elif block.type == "thinking":
+                    # Some models include thinking blocks, we can optionally log this
+                    print_with_color(f"[Thinking block detected, length: {len(block.text)} chars]", "cyan")
+
+            response_text = "".join(text_content)
+
+            if not response_text or len(response_text.strip()) == 0:
+                print_with_color("WARNING: Model returned empty content", "yellow")
+                return False, "Model returned empty response"
+
+            # Print usage info
+            if hasattr(message, 'usage') and message.usage:
+                print_with_color(f"Tokens - Input: {message.usage.input_tokens}, Output: {message.usage.output_tokens}", "yellow")
+
+            # Print response time
+            print_with_color(f"Response time: {response_time:.2f}s", "yellow")
+
+            return True, response_text
+
+        except Exception as e:
+            response_time = time.time() - start_time
+            print_with_color(f"ERROR: Anthropic request failed after {response_time:.2f}s: {e}", "red")
+            return False, f"Anthropic request failed: {str(e)}"
 
 
 def parse_explore_rsp(rsp):

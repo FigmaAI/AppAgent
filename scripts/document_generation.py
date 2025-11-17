@@ -8,7 +8,7 @@ import time
 
 import prompts
 from config import load_config
-from model import OpenAIModel, OllamaModel
+from model import OpenAIModel, OllamaModel, UnifiedModel, AnthropicModel
 from utils import print_with_color
 
 arg_desc = "AppAgent - Human Demonstration"
@@ -32,8 +32,20 @@ elif configs["MODEL"] == "local":
     mllm = OllamaModel(model=configs["LOCAL_MODEL"],
                        temperature=configs["TEMPERATURE"],
                        max_tokens=configs["MAX_TOKENS"])
+elif configs["MODEL"] == "unified":
+    # LiteLLM: Unified interface for 100+ providers
+    mllm = UnifiedModel(api_key=configs["UNIFIED_API_KEY"],
+                        model=configs["UNIFIED_MODEL"],
+                        temperature=configs["TEMPERATURE"],
+                        max_tokens=configs["MAX_TOKENS"])
+elif configs["MODEL"] == "anthropic":
+    # Anthropic: Official Claude SDK
+    mllm = AnthropicModel(api_key=configs["ANTHROPIC_API_KEY"],
+                          model=configs["ANTHROPIC_MODEL"],
+                          temperature=configs["TEMPERATURE"],
+                          max_tokens=configs["MAX_TOKENS"])
 else:
-    print_with_color(f"ERROR: Unsupported model type {configs['MODEL']}! Use 'api' or 'local'.", "red")
+    print_with_color(f"ERROR: Unsupported model type {configs['MODEL']}! Use 'api', 'local', 'unified', or 'anthropic'.", "red")
     sys.exit()
 
 root_dir = args["root_dir"]
