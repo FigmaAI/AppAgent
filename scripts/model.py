@@ -69,8 +69,9 @@ class OpenAIModel(BaseModel):
         self.base_url = base_url
         self.api_key = api_key
         self.model = model
-        self.temperature = temperature
-        self.max_tokens = max_tokens
+        # Ensure temperature is a float and max_tokens is an integer (API providers require correct types)
+        self.temperature = float(temperature)
+        self.max_tokens = int(max_tokens)
 
         # Detect provider from model name
         self.provider = self._detect_provider(model)
@@ -360,8 +361,9 @@ class OllamaModel(BaseModel):
     def __init__(self, model: str, temperature: float, max_tokens: int):
         super().__init__()
         self.model = model
-        self.temperature = temperature
-        self.max_tokens = max_tokens
+        # Ensure temperature is a float and max_tokens is an integer (correct types for Ollama)
+        self.temperature = float(temperature)
+        self.max_tokens = int(max_tokens)
         print_with_color(f"✓ Ollama Model initialized: {model}", "green")
 
     def get_model_response(self, prompt: str, images: List[str]) -> tuple[bool, str, dict]:
